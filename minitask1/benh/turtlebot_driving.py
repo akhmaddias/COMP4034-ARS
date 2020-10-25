@@ -104,10 +104,11 @@ def odom_callback(odom):
     p["theta"] = yaw
     p["x"] = odom.pose.pose.position.x
     p["y"] = odom.pose.pose.position.y
-    print(progress, turning, p["theta"])
+    # print(progress, turning, p["theta"])
     
     if turns >= 4:
         pub.publish(get_stop_twist())
+        rospy.signal_shutdown("Done!")
         return
 
 
@@ -137,6 +138,8 @@ def drive_closed_loop():
     global pub
     pub = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
     rospy.init_node('mover_square_open', anonymous=True)
+
+    start_plot()
 
     odom_subscriber = rospy.Subscriber("/odom", Odometry, odom_callback)
     pub.publish(get_forward_twist())
