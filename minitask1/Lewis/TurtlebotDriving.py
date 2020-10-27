@@ -12,6 +12,13 @@ class TurtlebotDriving():
         self.pub = rospy.Publisher('cmd_vel', Twist, queue_size = 10)
         rospy.init_node('TurtlebotDriving', anonymous = True)
 
+        rospy.on_shutdown(self.shutdown)
+
+        self.drive()
+
+    
+    # Sends the appropriate commands to the robot via the msg
+    def drive(self):
         # Forward message to move the Turtlebot forward at 0.1m/s
         forwardMessage = Twist()
         forwardMessage.linear.x = 0.1
@@ -31,22 +38,24 @@ class TurtlebotDriving():
         sideCount = 0
         turnCount = 0
 
-        while not rospy.is_shutdown() and sideCount != 4 and turnCount != 4:
+        while not rospy.is_shutdown() and sideCount < 4 and turnCount < 4:
             # Move forwards by 1m
-            print ("[TWIST]  Forward")
+            print("[TWIST]  Forward")
             self.msg(10, forwardMessage)
             sideCount += 1
-            print ("Sides completed: ", sideCount)
+            print("[LOG]    Sides completed: " + str(sideCount))
 
             # Turn by 90 degrees
             print ("[TWIST]  Left")
             self.msg(9, leftMessage)
             turnCount += 1
-            print ("Turns completed: ", turnCount)
+            print("[LOG]    Turns completed: " + str(turnCount))
 
-        print ("[TWIST]  Stop")
+        print("[TWIST]  Stop")
         self.msg(1, stopMessage)
 
+
+    # Messenger to send data to the robot
     def msg(self, timeToSend, data):
         rate = rospy.Rate(10)
         currentTime = rospy.Time.now().to_sec()
@@ -54,6 +63,14 @@ class TurtlebotDriving():
         while (rospy.Time.now().to_sec() - currentTime) < rospy.Duration(timeToSend).to_sec():
             self.pub.publish(data)
             rate.sleep()
+
+
+    # Shutdown method in the event of ctrl + c
+    def shutdown(self):
+        self.pub.publish(Twist())
+        print("[EXIT]  Stop")
+        rospy.sleep(1)
+
 
 if __name__ == '__main__':
     try:
