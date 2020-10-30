@@ -2,7 +2,8 @@
 import rospy
 import tf
 
-from geometry_msgs.msg import Twist
+from nav_msgs.msg import Path, Odometry
+from geometry_msgs.msg import Twist, PoseStamped, Pose
 from math import radians
 
 # Drives the Turtlebot in a 1m sqaure using open-loop control.
@@ -13,6 +14,11 @@ class TurtlebotDriving():
         rospy.init_node('TurtlebotDriving', anonymous = True)
 
         rospy.on_shutdown(self.shutdown)
+
+        # For path plotting
+        self.path_publisher = rospy.Publisher("/path", Path, queue_size=10)
+        self.path = Path()
+        self.plot_subscriber = rospy.Subscriber("/odom", Odometry, self.plot_trajectory)
 
         self.drive()
 
@@ -63,6 +69,18 @@ class TurtlebotDriving():
         while (rospy.Time.now().to_sec() - currentTime) < rospy.Duration(timeToSend).to_sec():
             self.pub.publish(data)
             rate.sleep()
+
+    def plot_trajectory(self, odom):
+        '''
+        Publishes the odometry data to /path so rviz can plot it.
+        '''
+        p = PoseStamped()
+        p.header = odom.header
+        p.pose = odom.pose.pose
+
+        self.path.header = odom.header
+        self.path.poses.append(p)
+        self.path_publisher.publish(self.path)
 
 
     # Shutdown method in the event of ctrl + c
