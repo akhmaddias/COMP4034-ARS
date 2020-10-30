@@ -16,6 +16,9 @@ class ClosedLoopController():
 
     def __init__(self):
         self.vel_publisher = None
+        self.path_publisher = rospy.Publisher("/path", Path, queue_size=10)
+        self.path = Path()
+
         self.last_pose = None
         self.turning = False
         self.progress = 0
@@ -53,6 +56,9 @@ class ClosedLoopController():
         curr_pose["x"] = odom.pose.pose.position.x
         curr_pose["y"] = odom.pose.pose.position.y
 
+        # call function to plot trajectory 
+        self.plot_trajectory(odom)
+
         if self.turns >= 4:
             self.drive_stop()
             rospy.signal_shutdown("Done!")
@@ -87,12 +93,17 @@ class ClosedLoopController():
         rospy.init_node('mover_square_open', anonymous=True)
         rospy.Subscriber("/odom", Odometry, self.odom_callback)
 
-        self.start_plot()
         self.drive_forward()
         rospy.spin()
 
-    def start_plot(self):
-        pass  # TODO integrate the final plotting
+    def plot_trajectory(self, odom):
+        p = PoseStamped()
+        p.header = odom.header
+        p.pose = odom.pose.pose
+
+        self.path.header = odom.header
+        self.path.poses.append(p)
+        self.path_publisher.publish(self.path)
 
 
 if __name__ == '__main__':
