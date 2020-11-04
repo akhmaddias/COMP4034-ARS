@@ -99,6 +99,9 @@ class Behaviour():
                 self.publish_command(right_turn_cmd)
 
     def obstacle_avoidance(self):
+        # continue_right and continue_left is used to
+        # keep turning in same direction as robot started
+        # otherwise it might get stuck in corners
         if continue_right:
             self.turn_right()
         elif continue_left:
@@ -122,6 +125,7 @@ class Behaviour():
         continue_right = False
         continue_left = False
 
+        # move forward 3 m and turn by random angle
         if sqrt((self.current_pose_x - last_pose_x) ** 2 +
                 (self.current_pose_y - last_pose_y) ** 2) < 3:
             self.publish_command(move_cmd)
@@ -153,13 +157,16 @@ class Behaviour():
         right = scan.ranges[240:300]
 
         if self.behaviour == 1:
+            # this behaviour is not working properly for now
             self.right_hand_wall_follow()
         else:
             if save_position:
                 last_pose_theta = self.current_pose_theta
                 last_pose_x = self.current_pose_x
                 last_pose_y = self.current_pose_y
-
+                
+            # switch between behaviours based on whether an obstacle
+            # is detected in front of robot
             if all(i >= 0.35 for i in front):
                 self.random_walk()
             else:
