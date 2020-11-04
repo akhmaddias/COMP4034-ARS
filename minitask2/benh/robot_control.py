@@ -10,21 +10,6 @@ from sensor_msgs.msg import LaserScan
 from abc import abstractmethod
 from math import pi as PI, radians, degrees, sqrt, cos
 
-# class PIDControl:
-
-#     def __init__(self, kp, ki, kd):
-#         self.kp = kp
-#         self.ki = ki
-#         self.kd = kd
-#         self.last_err = 0
-#         self.integral = 0
-#         self.last_time = -1
-
-#     def update(self, err):
-#         if self.last_time == -1:
-
-#         self.integral += error *
-
 THREE_METERS = 3
 
 SAMPLE_WINDOW = 20  # Degrees
