@@ -16,11 +16,11 @@ move_cmd.linear.x = 0.2
 
 left_turn_cmd = Twist()
 left_turn_cmd.linear.x = 0
-left_turn_cmd.angular.z = radians(20)
+left_turn_cmd.angular.z = radians(30)
 
 right_turn_cmd = Twist()
 right_turn_cmd.linear.x = 0
-right_turn_cmd.angular.z = radians(-20)
+right_turn_cmd.angular.z = radians(-30)
 
 stop_cmd = Twist()
 
