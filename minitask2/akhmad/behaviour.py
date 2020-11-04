@@ -9,74 +9,162 @@ from nav_msgs.msg import Odometry
 
 from math import radians, sqrt
 import random
+import numpy as np
 
 move_cmd = Twist()
-move_cmd.linear.x = 0.1
+move_cmd.linear.x = 0.2
 
-turn_cmd = Twist()
-turn_cmd.linear.x = 0
-turn_cmd.angular.z = radians(30)
+left_turn_cmd = Twist()
+left_turn_cmd.linear.x = 0
+left_turn_cmd.angular.z = radians(20)
+
+right_turn_cmd = Twist()
+right_turn_cmd.linear.x = 0
+right_turn_cmd.angular.z = radians(-20)
 
 stop_cmd = Twist()
+
+save_position = True
+last_pose_theta = None
+last_pose_x = None
+last_pose_y = None
+
+continue_right = False
+continue_left = False
+
+front = None
+right_front = None
+right_back = None
+right = None
+back = None
+left_back = None
+left_front = None
+left = None
+
+is_wall_found = False
 
 class Behaviour():
 
     def __init__(self):
+        self.behaviour = input("Enter behaviour mode '0' for random walk '1' for right hand wall following: ")
         rospy.init_node('behaviour')
+
+        # Subscribers
         self.laser_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
         self.odom_sub = rospy.Subscriber('/odom', Odometry, self.odom_callback)
+
+        # Publisher
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=3)
+
         self.rate = rospy.Rate(10)
-        self.ranges = []
         self.current_pose_theta = None
         self.current_pose_x = None
         self.current_pose_y = None
-
-    def spin(self):
-        rospy.loginfo("Program start")
-        while not rospy.is_shutdown():
-            if len(self.ranges) == 360:
-                self.random_walk()
-            self.rate.sleep()
+        rospy.spin()
 
     def publish_command(self, msg):
         self.cmd_vel_pub.publish(msg)
 
-    def obstacle_avoidance(self):
-        rospy.loginfo("Obstacle avoidance behaviour activated")
-        while self.ranges[0] < 0.25 or self.ranges[45] < 0.25 or self.ranges[325] < 0.25:
-            self.publish_command(turn_cmd)
-            self.rate.sleep()
-        self.publish_command(Twist())
+    def turn_left(self):
+        global continue_left, continue_right
+        continue_right = False
+        continue_left = True
+        self.publish_command(left_turn_cmd)
+        print("Turning left")
+    
+    def turn_right(self):
+        global continue_left, continue_right
+        continue_right = True
+        continue_left = False
+        self.publish_command(right_turn_cmd)
+        print("Turning right")
 
+    def right_hand_wall_follow(self):
+        rospy.loginfo("Right hand wall following")
+        global is_wall_found
 
-    def random_walk(self):
-        rospy.loginfo("Random walk behaviour activated")
-
-        last_pose_theta = self.current_pose_theta
-        last_pose_x = self.current_pose_x
-        last_pose_y = self.current_pose_y
-
-        while self.ranges[0] > 0.25 or self.ranges[45] > 0.25 or self.ranges[325] > 0.25:
-            if sqrt((self.current_pose_x - last_pose_x) ** 2 +
-                    (self.current_pose_y - last_pose_y) ** 2) < 3:
+        if not is_wall_found:
+            if all(i >= 0.35 for i in front):
                 self.publish_command(move_cmd)
             else:
+                is_wall_found = True
                 self.publish_command(Twist())
-                for x in range(0, random.randint(0, 12)):
-                    last_pose_theta = self.current_pose_theta
-                    last_pose_x = self.current_pose_x
-                    last_pose_y = self.current_pose_y
+        else:
+            if all(i <= 0.25 for i in right) and all(i <= 0.35 for i in front):
+                self.publish_command(left_turn_cmd)
+            elif all(i <= 0.25 for i in right) and all(i >= 0.35 for i in front):
+                self.publish_command(move_cmd)
+            elif all(i >= 0.25 for i in right) and all(i <= 0.35 for i in front):
+                self.publish_command(left_turn_cmd)
+            else:
+                self.publish_command(right_turn_cmd)
 
-                    self.publish_command(turn_cmd)
-                    self.rate.sleep()
-            self.rate.sleep()
-        rospy.loginfo(self.ranges[0])
-        self.publish_command(Twist())
-        self.obstacle_avoidance()
+    def obstacle_avoidance(self):
+        if continue_right:
+            self.turn_right()
+        elif continue_left:
+            self.turn_left()
+        elif all(i >= 0.25 for i in left_front):
+            self.turn_left()
+        elif all(i >= 0.25 for i in right_front):
+            self.turn_right()
+        elif all(i >= 0.25 for i in left_back):
+            self.turn_left()
+        elif all(i >= 0.25 for i in right_back):
+            self.turn_right()
+        else:
+            self.turn_left()
+
+    def random_walk(self):
+        rospy.loginfo("Random walk")
+        global save_position, continue_right, continue_left
+        global last_pose_theta, last_pose_x, last_pose_y
+
+        continue_right = False
+        continue_left = False
+
+        if sqrt((self.current_pose_x - last_pose_x) ** 2 +
+                (self.current_pose_y - last_pose_y) ** 2) < 3:
+            self.publish_command(move_cmd)
+            save_position = False
+        else:
+            self.publish_command(Twist())
+            save_position = True
+            for x in range(0, random.randint(0, 120)):
+                last_pose_theta = self.current_pose_theta
+                last_pose_x = self.current_pose_x
+                last_pose_y = self.current_pose_y
+
+                self.publish_command(left_turn_cmd)
+                self.rate.sleep()
 
     def scan_callback(self, scan):
-        self.ranges = scan.ranges
+        global front, right_front, right_back, back, left_back, left_front, right, left
+        global last_pose_theta
+        global last_pose_x
+        global last_pose_y
+        
+        front = scan.ranges[330:] + scan.ranges[0:30]
+        left_front = scan.ranges[30:90]
+        left_back = scan.ranges[90:150]
+        left = scan.ranges[60:120]
+        back = scan.ranges[150:210]
+        right_back = scan.ranges[210:270]
+        right_front = scan.ranges[270:330]
+        right = scan.ranges[240:300]
+
+        if self.behaviour == 1:
+            self.right_hand_wall_follow()
+        else:
+            if save_position:
+                last_pose_theta = self.current_pose_theta
+                last_pose_x = self.current_pose_x
+                last_pose_y = self.current_pose_y
+
+            if all(i >= 0.35 for i in front):
+                self.random_walk()
+            else:
+                self.obstacle_avoidance()
     
     def odom_callback(self, odom):
         quart = [odom.pose.pose.orientation.x,
@@ -92,6 +180,6 @@ class Behaviour():
 
 if __name__ == '__main__':
     try:
-        Behaviour().spin()
+        Behaviour()
     except rospy.ROSInterruptException:
         pass
