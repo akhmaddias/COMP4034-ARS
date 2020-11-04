@@ -1,0 +1,5 @@
+Our github repo is public and available here if you'd like to look at the blame: https://github.com/akhmaddias/COMP4034-ARS/tree/master/minitask1/submision.
+We created our own solutions then had a code review on monday where we chose the best elements from each to combine in to our final submission.
+
+In our final submission the open-loop control and matplotlib plotting is mainly the work of Akhmad and Lewis, while the closed loop control is mainly Ben's solution.
+Matthew had some issues getting his setup working with ROS so wasn't able to contribute directly to the code, but did participate as much as possible in our code review session. Everyone in the team is happy with his effort even if he wasn't able to directly write code.
