@@ -9,7 +9,6 @@ from nav_msgs.msg import Odometry
 
 from math import radians, sqrt
 import random
-import numpy as np
 
 move_cmd = Twist()
 move_cmd.linear.x = 0.2
