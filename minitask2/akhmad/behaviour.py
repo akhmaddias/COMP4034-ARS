@@ -42,8 +42,8 @@ left = None
 
 is_wall_found = False
 
-class Behaviour():
 
+class Behaviour():
     def __init__(self):
         self.behaviour = input("Enter behaviour mode '0' for random walk '1' for right hand wall following: ")
         rospy.init_node('behaviour')
@@ -70,7 +70,7 @@ class Behaviour():
         continue_left = True
         self.publish_command(left_turn_cmd)
         print("Turning left")
-    
+
     def turn_right(self):
         global continue_left, continue_right
         continue_right = True
@@ -146,7 +146,7 @@ class Behaviour():
         global last_pose_theta
         global last_pose_x
         global last_pose_y
-        
+
         front = scan.ranges[330:] + scan.ranges[0:30]
         left_front = scan.ranges[30:90]
         left_back = scan.ranges[90:150]
@@ -164,14 +164,14 @@ class Behaviour():
                 last_pose_theta = self.current_pose_theta
                 last_pose_x = self.current_pose_x
                 last_pose_y = self.current_pose_y
-                
+
             # switch between behaviours based on whether an obstacle
             # is detected in front of robot
             if all(i >= 0.35 for i in front):
                 self.random_walk()
             else:
                 self.obstacle_avoidance()
-    
+
     def odom_callback(self, odom):
         quart = [odom.pose.pose.orientation.x,
                  odom.pose.pose.orientation.y,
@@ -183,6 +183,7 @@ class Behaviour():
         self.current_pose_theta = yaw
         self.current_pose_x = odom.pose.pose.position.x
         self.current_pose_y = odom.pose.pose.position.y
+
 
 if __name__ == '__main__':
     try:
