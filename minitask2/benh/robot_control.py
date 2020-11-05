@@ -149,13 +149,13 @@ class WallFollowing(RobotBehaviour):
                                         window_size=WallFollowing.WINDOW)
         top = super(WallFollowing,
                     self).sample_scan(scandata,
-                                      270 - WallFollowing.SAMPLE_ANGLE,
+                                      270 + WallFollowing.SAMPLE_ANGLE,
                                       window_size=WallFollowing.WINDOW)
 
-        # This is what the top angle should be if the wall is straight and we
+        # This is what the top distance should be if the wall is straight and we
         # are parallel to it
         predicted_top = right / cos(radians(WallFollowing.SAMPLE_ANGLE))
-        err = top - predicted_top
+        err = predicted_top - top
 
         # if positive, top sample is further away than expected, turn right.
         # Otherwise, turn left
