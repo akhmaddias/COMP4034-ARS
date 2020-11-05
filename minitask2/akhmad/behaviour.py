@@ -12,8 +12,6 @@ import random
 
 WALKING_DISTANCE = 3
 MIN_DISTANCE = 0.5
-OBSTACLE_AVOID = 0
-WALL_FOLLOW = 1
 
 
 class Behaviour():
