@@ -14,10 +14,10 @@ WALK_DISTANCE = 3.0
 MIN_DISTANCE = 0.5
 TURN_SPEED = ((2 * PI) / 360) * 25  # 25 Deg/s
 
-class Obstacle_avoidance():
+class Right_wall_follow():
 
     def __init__(self):
-        rospy.init_node('Obstacle_avoidance', anonymous=True)
+        rospy.init_node('Right_wall_follow', anonymous=True)
         rospy.on_shutdown(self.shutdown)
 
         # For movement
@@ -42,7 +42,6 @@ class Obstacle_avoidance():
 
         # For behavioural blocking
         self.blocking_publisher = rospy.Publisher('blocking', Int32, queue_size=10)
-        rospy.Subscriber('blocking', Int32, self.blocking_callback)
         self.blocking = False
         self.blocked = False
 
@@ -62,26 +61,31 @@ class Obstacle_avoidance():
         '''
         Handles the scanner data and determines the correct action
         '''
-        min_val_angle = 0
-        min_val = 50
-        for i in range(300, 359):
-            if scan.ranges[i] < min_val:
-                min_val = scan.ranges[i]
-                min_val_angle = i
-        for i in range(0, 60):
-            if scan.ranges[i] < min_val:
-                min_val = scan.ranges[i]
-                min_val_angle = i
+        min_val_right = 50
+        for i in range(70, 110):
+            if scan.ranges[i] < min_val_right:
+                min_val_right = scan.ranges[i]
+
+        min_val_right_front = 50
+        for i in range(30, 70):
+            if scan.ranges[i] < min_val_right_front:
+                min_val_right_front = scan.ranges[i]
+
+        min_val_right_rear = 50
+        for i in range(110, 140):
+            if scan.ranges[i] < min_val_right_rear:
+                min_val_right_rear = scan.ranges[i]
 
         if not self.blocked:
-            if min_val < MIN_DISTANCE:
+            if min_val_right < MIN_DISTANCE:
                 if self.blocking == False:
                     rospy.loginfo("Blocking")
                     self.drive_stop()
                     self.blocking = True
                     self.direction_set = False
                     self.blocking_publisher.publish(1)
-                self.obstacle_avoidance(scan, min_val_angle)
+                    self.blocking_publisher.publish(3)
+                self.wall_follow(scan, min_val_right, min_val_right_front, min_val_right_rear)
             else:
                 if self.blocking == True:
                     rospy.loginfo("Not blocking")
@@ -90,40 +94,25 @@ class Obstacle_avoidance():
                     self.direction_set = False
                     self.drive_stop()
                     self.blocking_publisher.publish(0)
+                    self.blocking_publisher.publish(2)
 
-    def blocking_callback(self, data):
-        '''
-        Sets the blocking flag if higher priority actions are taking place
-        '''
-        rospy.loginfo("Blocking message received")
-        if str(data.data) == str(3):
-            rospy.loginfo("Blocked")
-            self.blocked = True
-            self.drive_stop
-        elif str(data.data) == str(2):
-            rospy.loginfo("Unblocked")
-            self.drive_stop
-            self.blocked = False
-            self.turning = False
-
-    def obstacle_avoidance(self, scan, min_val_angle):
+    def wall_follow(self, scan, min_val, min_val_front, min_val_rear):
         # Identify where the object is
-        if not self.direction_set:
-            rospy.loginfo("Obstacle avoidance")
-            if min_val_angle < 90:
-                self.direction = 2
-                self.direction_set = True
-            else: 
-                self.direction = 1
-                self.direction_set = True
-        else: 
-            if self.direction == 1:
-                self.vel_publisher.publish(self.turn_left)
-            else: 
+        if min_val <= MIN_DISTANCE:
+            self.vel_publisher.publish(self.forward)
+        elif min_val >= MIN_DISTANCE:
+            if min_val_front <= MIN_DISTANCE:
+                self.vel_publisher.publish(self.forward)
+            elif min_val_rear >= MIN_DISTANCE:
                 self.vel_publisher.publish(self.turn_right)
+            else:
+                custom = Twist()
+                custom.linear.x = 0.1
+                custom.angular.z = TURN_SPEED/2
+                self.vel_publisher.publish(custom)
 
     def start(self):
-        rospy.loginfo("Starting Obstacle Avoidance")
+        rospy.loginfo("Starting Right Wall Follower")
         self.laser_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)        
         rospy.spin()
 
@@ -133,11 +122,11 @@ class Obstacle_avoidance():
         '''
         self.blocked = True
         self.vel_publisher.publish(Twist())
-        rospy.loginfo("Stopping Obstacle Avoidance")
+        rospy.loginfo("Stoping Right Wall Follower")
         rospy.sleep(1)
 
 if __name__ == '__main__':
     try:
-        Obstacle_avoidance().start()
+        Right_wall_follow().start()
     except rospy.ROSInterruptException:
         pass
