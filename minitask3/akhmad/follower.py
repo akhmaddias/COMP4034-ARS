@@ -109,7 +109,7 @@ class Follower():
                 self.green_block_detected = True
                 cv2.circle(image_resized, (cx, cy), 5, (0, 0, 255), -1)
 
-        cv2.imshow("binary", image_resized)
+        cv2.imshow("image", image_resized)
         cv2.waitKey(3)
         if self.green_block_detected:
             self.move_by_image()
