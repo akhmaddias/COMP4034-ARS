@@ -19,6 +19,8 @@ FORWARD_SPEED = 0.2
 TURN_SPEED = ((2 * PI) / 360) * 25  # 25 Deg/s
 WALK_DISTANCE = 3.0
 MIN_DISTANCE = 0.3
+LOW_GREEN = np.array([0, 100, 0])
+HIGH_GREEN = np.array([100, 255, 255])
 
 class Follower():  # pylint: disable=too-many-instance-attributes
     '''
@@ -44,14 +46,8 @@ class Follower():  # pylint: disable=too-many-instance-attributes
         self.direction_set = False
 
         # For odometry and position tracking
-        self.curr_pose = {}
-        self.curr_pose["theta"] = 0.0
-        self.curr_pose["x"] = 0.0
-        self.curr_pose["y"] = 0.0
-        self.last_pose = {}
-        self.last_pose["theta"] = 0.0
-        self.last_pose["x"] = 0.0
-        self.last_pose["y"] = 0.0
+        self.curr_pose = {"theta": 0.0, "x": 0.0, "y": 0.0}
+        self.last_pose = {"theta": 0.0, "x": 0.0, "y": 0.0}
         self.turning = False
         self.travel_angle = 0.0
         self.object_detected = False
@@ -100,18 +96,19 @@ class Follower():  # pylint: disable=too-many-instance-attributes
         '''
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data,'bgr8')
+            cv_image_resized = cv2.resize(cv_image, (cv_image.shape[1] / 4,
+                                        cv_image.shape[0] / 4))
+            image_hsv = cv2.cvtColor(cv_image_resized, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(image_hsv, LOW_GREEN, HIGH_GREEN)
+            objects = self.get_centroids(mask)
+
+            self.draw_centroids(objects, cv_image_resized)
+            self.drive(objects, cv_image_resized.shape[1])
+
+            cv2.waitKey(3)
+
         except CvBridgeError as error:  # catch conversion errors
             print(error)
-
-        cv_image_resized = cv2.resize(cv_image, (cv_image.shape[1]/4,cv_image.shape[0]/4))
-        mask = self.get_mask(cv_image_resized)
-        objects = self.get_centroids(mask)
-
-        self.draw_centroids(objects, cv_image_resized)
-
-        self.drive(objects, cv_image_resized.shape[1])
-
-        cv2.waitKey(3)
 
     def drive(self, objects, image_width):
         '''
@@ -241,8 +238,8 @@ class Follower():  # pylint: disable=too-many-instance-attributes
         for contour in contours:  # Creates an array of the centres of each object
             moments = cv2.moments(contour)
             if moments["m00"] != 0:
-                center_x = int(moments['m10']/moments['m00'])
-                center_y = int(moments['m01']/moments['m00'])
+                center_x = int(moments['m10'] / moments['m00'])
+                center_y = int(moments['m01'] / moments['m00'])
                 centroids.append((center_x, center_y))
 
         if len(contours) != self.objects:
@@ -250,16 +247,6 @@ class Follower():  # pylint: disable=too-many-instance-attributes
             rospy.loginfo("Objects: " + str(self.objects))
 
         return centroids
-
-    def get_mask(self, image):
-        '''
-        Returns an image mask based on the colour green
-        '''
-        image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        low_green = np.array([0, 100, 0])
-        high_green = np.array([100, 255, 255])
-        mask = cv2.inRange(image_hsv, low_green, high_green)
-        return mask
 
     def set_angle(self):
         '''
