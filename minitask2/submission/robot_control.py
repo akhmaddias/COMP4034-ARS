@@ -193,7 +193,7 @@ class WallFollowing(RobotBehaviour):
         turnspeed = WallFollowing.TURN_GAIN * err
 
         # Slight nudge to stay about 1m from the wall
-        turnspeed += 0.1 if right > WallFollowing.IDEAL_DIST else -0.1
+        turnspeed += -0.1 if right > WallFollowing.IDEAL_DIST else 0.1
 
         super(WallFollowing, self).move(turnspeed, WallFollowing.MOVE_SPEED)
 
