@@ -2,17 +2,18 @@
 import rospy
 import cv2
 import cv_bridge
-import numpy
+import numpy as np
 
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image, LaserScan
 
-LOWER_GREEN = numpy.array([60, 100, 50])
-UPPER_GREEN = numpy.array([60, 255, 255])
+LOWER_GREEN = np.array([60, 100, 50])
+UPPER_GREEN = np.array([60, 255, 255])
 
 SAMPLE_WINDOW = 20  # Degrees
 
 TURN_MAX_SPEED = 0.2
+TURN_MIN_SPEED = 0.01
 TURN_GAIN = 0.01
 
 FORWARD_SPEED = 0.3
@@ -27,6 +28,7 @@ class Follower():
 
         self.move_twist = Twist()
 
+        self.stop = False
         self.front = False
         self.right = False
         self.green_block_detected = False
@@ -60,7 +62,6 @@ class Follower():
         return min_val
 
     def move_by_image(self):
-        rospy.loginfo("Walking towards green block")
         err_x = float('inf')
         err_y = float('inf')
 
@@ -69,16 +70,22 @@ class Follower():
             err_x = min(c['cx'] - self.width_middle, err_x)
             err_y = min(c['cy'] - self.height_middle, err_y)
         turnspeed = -float(err_x) * TURN_GAIN
-
-        # Make sure turnspeed is not too high
-        turnspeed = TURN_MAX_SPEED if turnspeed > TURN_MAX_SPEED else turnspeed
-        turnspeed = -TURN_MAX_SPEED if turnspeed < -TURN_MAX_SPEED else turnspeed
-
-        # Was trying to stop robot in front of block but this doesn't work
-        if (err_y > -10 and err_y < 10 and self.front):
-            self.move(0, 0)
+        # Make sure turnspeed is not too large or not too small
+        if turnspeed < 0:
+            turnspeed = max(min(-TURN_MIN_SPEED, turnspeed), -TURN_MAX_SPEED)
         else:
-            self.move(turnspeed, FORWARD_SPEED)
+            turnspeed = min(max(TURN_MIN_SPEED, turnspeed), TURN_MAX_SPEED)
+
+        # Stop robot when object is in front < 0.5 and
+        # centroid height is in (-20 to 20)
+        if (err_y > -20 and err_y < 20 and self.front):
+            rospy.loginfo("Reached green block! Stopping..")
+            self.stop = True
+            self.move(0, 0)
+            return
+
+        rospy.loginfo("Walking towards green block")
+        self.move(turnspeed, FORWARD_SPEED)
 
     def move_by_scan(self):
         rospy.loginfo("Just walking")
@@ -109,7 +116,7 @@ class Follower():
                 self.green_block_detected = True
                 cv2.circle(image_resized, (cx, cy), 5, (0, 0, 255), -1)
 
-        cv2.imshow("image", image_resized)
+        cv2.imshow("binary", image_resized)
         cv2.waitKey(3)
         if self.green_block_detected:
             self.move_by_image()
@@ -117,7 +124,7 @@ class Follower():
     def onscan(self, scandata):
         self.front = self.sample_scan(scandata, 0, window_size=60) <= 0.5
         self.right = self.sample_scan(scandata, 270, window_size=60) <= 0.5
-        if self.front or not self.green_block_detected:
+        if (self.front or not self.green_block_detected) and not self.stop:
             self.move_by_scan()
 
 
