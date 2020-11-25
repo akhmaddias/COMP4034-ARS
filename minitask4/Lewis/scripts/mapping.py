@@ -4,8 +4,6 @@ Will create a discretised environment to keep track of
 where the Turtlebot3 Waffle has visited.
 '''
 
-import random
-
 import rospy
 
 import numpy as np
@@ -23,6 +21,7 @@ SIZE_Y = 100
 RESOLUTION = 0.2
 VISITED = 0
 UNVISITED = -1
+
 
 class OccupancyGrid():
     '''
@@ -42,7 +41,7 @@ class OccupancyGrid():
         '''
         world_x, world_y = odom.pose.pose.position.x, odom.pose.pose.position.y
 
-        (grid_x, grid_y) = to_grid(world_x, world_y)
+        grid_x, grid_y = to_grid(world_x, world_y)
         cell_index = to_cell_index(grid_x, grid_y)
 
         self.grid_cells[cell_index] = VISITED
@@ -65,22 +64,20 @@ class OccupancyGrid():
         bounds = [-1, 0, 1, 2]
         self.image = plot.imshow(
             self.grid_cells.reshape(SIZE_X, SIZE_Y),
-            cmap = cmap,
-            norm = colors.BoundaryNorm(bounds, cmap.N))
+            cmap=cmap,
+            norm=colors.BoundaryNorm(bounds, cmap.N))
 
         # Clears axis labels
         plt.tick_params(
-            axis = 'both',
-            which = 'both',
-            bottom = False,
-            left = False,
-            labelbottom = False,
-            labelleft = False)
+            axis='both',
+            which='both',
+            bottom=False,
+            left=False,
+            labelbottom=False,
+            labelleft=False)
 
-        figure.set_size_inches((8.5, 11), forward = False)  # Sets figure size
-
-        _ = animation.FuncAnimation(figure, self.animate, blit = True)  # Draws graph
-
+        figure.set_size_inches((8.5, 11), forward=False)  # Sets figure size
+        animation.FuncAnimation(figure, self.animate, blit=True)  # Draws graph
         plt.show()
 
     def animate(self, _):
@@ -89,39 +86,40 @@ class OccupancyGrid():
         it in a weird and wonderful way that pyplot understands.
         '''
         self.image.set_data(self.grid_cells.reshape(SIZE_X, SIZE_Y))
-        return self.image,
+        return self.image
+
 
 def to_grid(world_x, world_y):
     '''
     Will return occupancy grid coordinates given real-world coordinates
     or None if the coordinates fall outside the range of the occupancy grid.
     '''
-    if (world_x < ORIGIN_X or world_y < ORIGIN_Y):
-        return None  # If the coordinates are before the start of the grid
-
     grid_x = floor((world_x - ORIGIN_X) / RESOLUTION)
     grid_y = floor((world_y - ORIGIN_Y) / RESOLUTION)
 
-    if (grid_x >= SIZE_X or grid_y >= SIZE_Y):
-        return None  # If the coordinates are after the end of the grid
+    if any((world_x < ORIGIN_X,
+            world_y < ORIGIN_Y,
+            grid_x >= SIZE_X,
+            grid_y >= SIZE_Y)):
+        raise ValueError("Coordinates must be somewhere in the grid")
+    return grid_x, grid_y
 
-    return (grid_x, grid_y)
 
 def to_world(grid_x, grid_y):
     '''
     Will return real-world coordinates given occupancy grid coordinates
     or None if the coordinates fall outside the occupancy grid.
     '''
-    if (grid_x > SIZE_X or grid_y > SIZE_Y):
-        return None  # If the coordinates are after the end of the grid
-
     world_x = (grid_x + ORIGIN_X) * RESOLUTION
     world_y = (grid_y + ORIGIN_Y) * RESOLUTION
 
-    if (world_x < ORIGIN_X or world_y < ORIGIN_Y):
-        return None  # If the coordinates are before the start of the grid
+    if any((grid_x > SIZE_X,
+            grid_y > SIZE_Y,
+            world_x < ORIGIN_X,
+            world_y < ORIGIN_Y)):
+        raise ValueError("Grid coordinates are out of range!")
+    return world_x, world_y
 
-    return (world_x, world_y)
 
 def to_cell_index(grid_x, grid_y):
     '''
@@ -129,7 +127,8 @@ def to_cell_index(grid_x, grid_y):
     This is mirrored in X and Y so that the map accurately represents
     the path that the bot has followed.
     '''
-    return int((SIZE_X * SIZE_Y) - (grid_x * SIZE_X + grid_y))
+    return (SIZE_X * SIZE_Y) - (grid_x * SIZE_X + grid_y)
+
 
 if __name__ == '__main__':
     try:
