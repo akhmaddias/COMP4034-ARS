@@ -19,6 +19,7 @@ WAYPOINTS = (
     (-6.0, -3.0),  # Bottom right room
     (-3.0, 1.0)  # Return to starting position
     )
+LOOPING = True
 
 class Patrol():
     '''
@@ -44,7 +45,7 @@ class Patrol():
         while not self.action_client.wait_for_server(rospy.Duration.from_sec(5.0)):
             rospy.loginfo("Waiting for move_base server...")
 
-        while not self.shutting_down:
+        while LOOPING and not self.shutting_down:
             for waypoint in self.waypoints:
                 rospy.loginfo("Moving to waypoint %s %s. Visited %s waypoints so far",
                     self.waypoints_visited + 1, waypoint, self.waypoints_visited)
