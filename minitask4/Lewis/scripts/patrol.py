@@ -45,7 +45,9 @@ class Patrol():
         while not self.action_client.wait_for_server(rospy.Duration.from_sec(5.0)):
             rospy.loginfo("Waiting for move_base server...")
 
-        while LOOPING and not self.shutting_down:
+        rospy.loginfo("Repeat waypoint list: %s", LOOPING)
+        looping = True
+        while looping and not self.shutting_down:
             for waypoint in self.waypoints:
                 rospy.loginfo("Moving to waypoint %s %s. Visited %s waypoints so far",
                     self.waypoints_visited + 1, waypoint, self.waypoints_visited)
@@ -56,7 +58,9 @@ class Patrol():
                     rospy.loginfo("Exiting waypoint loop")
                     break
 
-            rospy.loginfo("Exiting patrol loop")
+            looping = LOOPING
+            
+        rospy.loginfo("Exiting patrol loop")
         self.shutdown()
 
     def go_to_waypoint(self, waypoint):
