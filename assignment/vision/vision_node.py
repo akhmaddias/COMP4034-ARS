@@ -4,13 +4,12 @@ import os
 import json
 import numpy as np
 
+from followbot.msg import DetectedObject
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import PoseWithCovariance, Pose
-from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithPose
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
 
-DEBUG = True
+DEBUG = False
 DEBUG_SAMPLE_RADIUS = 10  # Radius not accurate as its a square
 
 
@@ -56,7 +55,7 @@ class DetectableObject(object):
         _, contours, _ = cv.findContours(closed,
                                          cv.RETR_TREE,
                                          cv.CHAIN_APPROX_SIMPLE)
-                                         
+
         if DEBUG:
             cv.imshow('Mask: {0}'.format(self.name), closed)
 
@@ -165,6 +164,10 @@ class ROSNode():
         self.image_sub = rospy.Subscriber('/camera/rgb/image_raw',
                                           Image,
                                           self.image_callback)
+        self.detected_pub = rospy.Publisher("/objects",
+                                            DetectedObject,
+                                            queue_size=5)
+
         self.classifier = Classifier()
 
     def image_callback(self, data):
@@ -173,7 +176,7 @@ class ROSNode():
             cv_image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
             # Nothing good ever happens in the bottom half of the image
-            h, w, _ = cv_image.shape
+            h = cv_image.shape[0]
             cv_image = cv_image[:int(h / 2), :, :]
 
             cv_image_resized = cv.resize(cv_image,
@@ -185,7 +188,13 @@ class ROSNode():
             if DEBUG:
                 self.debug_colours(image_hsv.copy())
 
-            self.classifier.classify(image_hsv)
+            detected = self.classifier.classify(image_hsv)
+            for name, x, y in detected:
+                msg = DetectedObject()
+                msg.object_name = name
+                msg.x, msg.y = x, y
+                msg.size_y, msg.size_x, _ = image_hsv.shape
+                self.detected_pub.publish(msg)
 
         except CvBridgeError as err:
             rospy.logerr('CvBridgeError in image_callback: %s', err)
@@ -206,7 +215,7 @@ class ROSNode():
         cv.waitKey(3)
 
     def shutdown(self):
-        print("Goodbye!")
+        rospy.loginfo("Goodbye!")
 
 
 if __name__ == '__main__':
