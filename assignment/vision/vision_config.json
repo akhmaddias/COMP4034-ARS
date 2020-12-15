@@ -1,7 +1,7 @@
 {
     "scale_down": 4,
     "gauss_kernel_size": 15,
-    "contour_size_threshold": 20,
+    "contour_size_threshold": 2000,
 
     "targets": [
         {
@@ -13,6 +13,38 @@
             "h_range": 25,
             "s_range": 30,
             "v_range": 100 
+        },
+        {
+            "name": "Green Box",
+            "expected_size": 0,
+            "h": 60,
+            "s": 240,
+            "v": 100,
+            "h_range": 5,
+            "s_range": 100,
+            "v_range": 200 
+        },
+        {
+            "name": "Blue Postbox",
+            "expected_size": 0,
+            "h": 95,
+            "s": 140,
+            "v": 70,
+            "h_range": 40,
+            "s_range": 60,
+            "v_range": 140 
+        },
+        {
+            "name": "Black and White 5",
+            "expected_size": 0,
+            "h": 90,
+            "s": 3,
+            "v": 10,
+            "h_range": 180,
+            "s_range": 10,
+            "v_range": 20,
+            "text": "5"
         }
+
     ]
 }

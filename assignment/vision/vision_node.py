@@ -14,7 +14,7 @@ DEBUG_COLOURS = True
 DEBUG_SAMPLE_RADIUS = 10  # Radius not accurate as its a square
 
 
-class DetectableObject():
+class DetectableObject(object):
 
     def __init__(self, name, expected_size, h, s, v, h_range, s_range, v_range):
         self.name = name
@@ -47,19 +47,23 @@ class DetectableObject():
                                                   self.hsv_lo[1],
                                                   self.hsv_lo[2]]), self.hsv_hi)
             mask = mask1 + mask2
+            # print(self.name, 1)
         else:
             mask = cv.inRange(blurred, self.hsv_lo, self.hsv_hi)
+            # print(self.name, 2)
 
         closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, (5, 5))
 
         _, contours, _ = cv.findContours(closed,
                                          cv.RETR_TREE,
                                          cv.CHAIN_APPROX_SIMPLE)
+        cv.imshow(self.name + 'mask', closed)
 
         matches = 0
         best_contour = None
         best_area = 0
 
+        # print('{0} {1}'.format(self.name, len(contours)))
         for contour in contours:
             moments = cv.moments(contour)
             area = moments['m00']
@@ -72,14 +76,20 @@ class DetectableObject():
                     best_area = area
 
         if matches > 1:
-            warnmsg = 'More than one contour was found for {0}, consider \
-                       tweaking the config!'.format(self.name)
+            warnmsg = 'Found {0} (>1) contour was found for {1}, consider \
+                       tweaking the config!'.format(matches, self.name)
             rospy.logwarn(warnmsg)
         return best_contour
 
 
 class DetectableTextObject(DetectableObject):
-    pass
+
+    def __init__(self, name, expected_size, h, s, v, h_range, s_range, v_range):
+        super(DetectableTextObject, self).__init__(self,
+                                                   name,
+                                                   expected_size,
+                                                   h, s, v,
+                                                   h_range, s_range, v_range)
 
 
 class Classifier():
