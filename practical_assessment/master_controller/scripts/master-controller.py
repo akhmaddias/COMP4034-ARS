@@ -444,7 +444,7 @@ class Controller():
 
     def avoidance_behaviour_finish(self):
         '''
-        Triggered when obstacle avoidance detects something and needs to take over.
+        Triggered when obstacle avoidance is no longer detecting anything.
         Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
         will override a controlling behaviour.
         '''
@@ -459,11 +459,39 @@ class Controller():
 
     
     def recovery_behaviour_run(self):
-        pass
+        '''
+        Triggered when recovery behaviour is initiated and needs to take over.
+        Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
+        will override a controlling behaviour.
+        '''
+        
+        self.out_of_controlling_state_lock.acquire()
+        rospy.loginfo("Out of controlling state lock acquired")
+        
+        if self.state_mapping == STATE_ACTIVE_RUNNING:
+            self.mapping_control_publisher.publish(ACTION_PAUSE)
+            self.change_behaviour(BEHAVIOUR_RECOVERY, STATE_ACTIVE_RUNNING, BEHAVIOUR_MAPPING, STATE_ACTIVE_PAUSED)
+        elif self.state_object_navigation == STATE_ACTIVE_RUNNING:
+            self.object_navigation_control_publisher.publish(ACTION_PAUSE)
+            self.change_behaviour(BEHAVIOUR_RECOVERY, STATE_ACTIVE_RUNNING, BEHAVIOUR_OBJECT_NAVIGATION, STATE_ACTIVE_PAUSED)
+        
+        self.out_of_controlling_state_lock.release()
+        rospy.loginfo("Out of controlling state lock released")
 
 
     def recovery_behaviour_finished(self):
-        pass
+        '''
+        Triggered when recovery behaviour is no longer detecting anything.
+        Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
+        will override a controlling behaviour.
+        '''
+        self.out_of_controlling_state_lock.acquire()
+        rospy.loginfo("Out of controlling state lock acquired")
+
+        self.return_to_previous_behaviour()
+        
+        self.out_of_controlling_state_lock.release()
+        rospy.loginfo("Out of controlling state lock released")
 
 
     def object_navigation_run(self):
