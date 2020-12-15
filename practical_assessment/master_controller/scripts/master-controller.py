@@ -17,6 +17,9 @@ Behaviour priority is as follows:
 
 __author__      = "Lewis C Brand"
 
+import time
+import threading
+
 import rospy
 
 from geometry_msgs.msg import Pose
@@ -44,7 +47,7 @@ STATE_INACTIVE = 0
 BEHAVIOUR_NONE = -1
 BEHAVIOUR_MAPPING = 0
 BEHAVIOUR_OBJECT_NAVIGATION = 1
-COLLISION_AVOIDANCE = 2
+BEHAVIOUR_COLLISION_AVOIDANCE = 2
 BEHAVIOUR_RECOVERY = 3
 BEHAVIOUR_OBJECT_DETECTION = 4
 
@@ -68,11 +71,14 @@ class Controller():
     def __init__(self):
         rospy.on_shutdown(self.shutdown)
         self.shutting_down = False
+        self.behaviour_change_lock = threading.Lock()
+        self.out_of_controlling_state_lock = threading.Lock()
 
         rospy.loginfo("Initialising state model")
+
         #  State variables
         self.state_mapping = STATE_INACTIVE
-        self.state_object_detection = STATE_INACTIVE
+        self.state_object_detection = STATE_ACTIVE_STOPPED
         self.state_object_navigation = STATE_INACTIVE
         self.state_collision_avoidance = STATE_INACTIVE
         self.state_recovery = STATE_INACTIVE
@@ -137,6 +143,7 @@ class Controller():
             object_details["id"] = i
             object_details["x"] = 0.0
             object_details["y"] = 0.0
+            object_details["z"] = 0.0
             object_details["name"] = detectable_object
             object_details["visited"] = False
             object_details["visiting"] = False
@@ -220,17 +227,20 @@ class Controller():
     def change_behaviour(self, current_behaviour, current_behaviour_new_state, new_behaviour, new_behaviour_new_state):
         '''
         Signals a change in current behaviour and changes states appropriately.
+        Locks the thread so this happens as an atomic block. This prevents two behaviours
+        changing state at once and creating a rece condition.
         '''
-        rospy.loginfo("Behaviour changed from " + 
-            self.get_behaviour_name(current_behaviour) + 
-            " to " + 
-            self.get_behaviour_name(new_behaviour))
-        self.behaviour_previous = current_behaviour
-        self.behaviour_current = new_behaviour
+        with self.behaviour_change_lock:
+            rospy.loginfo("Behaviour changed from " + 
+                self.get_behaviour_name(current_behaviour) + 
+                " to " + 
+                self.get_behaviour_name(new_behaviour))
+            
+            self.behaviour_previous = current_behaviour
+            self.behaviour_current = new_behaviour
 
-        self.change_behaviour_state(current_behaviour, current_behaviour_new_state)
-        self.change_behaviour_state(new_behaviour, new_behaviour_new_state)
-
+            self.change_behaviour_state(current_behaviour, current_behaviour_new_state)
+            self.change_behaviour_state(new_behaviour, new_behaviour_new_state)
 
     def change_behaviour_state(self, behaviour, new_state):
         '''
@@ -277,8 +287,24 @@ class Controller():
         Signals a return from the current behaviour to the finishing one and changes
         the states appropriately.
         '''
-        pass
+        with self.behaviour_change_lock:
+            past_behaviour = self.behaviour_previous
+            current_behaviour = self.behaviour_current
 
+            rospy.loginfo("Behaviour returning from " + 
+            self.get_behaviour_name(current_behaviour) + 
+            " to " + 
+            self.get_behaviour_name(past_behaviour))
+
+            self.behaviour_previous = current_behaviour
+            self.behaviour_current = past_behaviour
+
+            self.change_behaviour_state(current_behaviour, STATE_INACTIVE)
+
+            if past_behaviour == BEHAVIOUR_MAPPING:
+                self.mapping_resume()
+            elif past_behaviour == BEHAVIOUR_OBJECT_NAVIGATION:
+                self.object_navigation_resume()
 
     def mapping_send_coordinates(self, waypoint):
         '''
@@ -356,11 +382,100 @@ class Controller():
         '''
 
         if behaviour == BEHAVIOUR_OBJECT_DETECTION:
-            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_STOPPED, BEHAVIOUR_OBJECT_NAVIGATION, STATE_ACTIVE_RUNNING)
+            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_STOPPED, BEHAVIOUR_OBJECT_DETECTION, STATE_ACTIVE_RUNNING)
             self.mapping_control_publisher.publish(ACTION_STOP)
         else:
             self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_STOPPED, behaviour, STATE_ACTIVE_RUNNING)
             self.mapping_control_publisher.publish(ACTION_PAUSE)
+
+
+    def object_detection_detected(self):
+        '''
+        Called when an object is detected.
+        If mapping is currently active (and therefore not overridden), and the object that has been detected
+        is new and currently not being visited, this method will override mapping and start object navigation.
+        Uses a thread lock to prevent overriding behaviours executing whilst there are no motion controlling
+        behaviours running.
+        '''
+        self.out_of_controlling_state_lock.acquire()
+        rospy.loginfo("Out of controlling state lock acquired")
+
+        if self.state_mapping == STATE_ACTIVE_RUNNING and not (
+            self.objects[self.object_current]["visited"] or self.objects[self.object_current]["visiting"]
+        ):
+            self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
+            self.objects[self.object_current]["visiting"] = True
+            self.object_navigation_type_publisher.publish(self.objects[self.object_current]["name"])
+
+            pose = Pose
+            pose.position.x = self.objects[self.object_current]["x"]
+            pose.position.y = self.objects[self.object_current]["y"]
+            pose.position.z = self.objects[self.object_current]["z"]
+            self.object_navigation_pose_publisher.publish(pose)
+
+            self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION, STATE_ACTIVE_STOPPED, BEHAVIOUR_OBJECT_NAVIGATION, STATE_ACTIVE_RUNNING)
+
+            self.object_navigation_control_publisher.publish(ACTION_START)
+        
+        self.out_of_controlling_state_lock.release()
+        rospy.loginfo("Out of controlling state lock released")
+
+
+    def avoidance_behaviour_run(self):
+        '''
+        Triggered when obstacle avoidance detects something and needs to take over.
+        Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
+        will override a controlling behaviour.
+        '''
+        
+        self.out_of_controlling_state_lock.acquire()
+        rospy.loginfo("Out of controlling state lock acquired")
+        
+        if self.state_mapping == STATE_ACTIVE_RUNNING:
+            self.mapping_control_publisher.publish(ACTION_PAUSE)
+            self.change_behaviour(BEHAVIOUR_COLLISION_AVOIDANCE, STATE_ACTIVE_RUNNING, BEHAVIOUR_MAPPING, STATE_ACTIVE_PAUSED)
+        elif self.state_object_navigation == STATE_ACTIVE_RUNNING:
+            self.object_navigation_control_publisher.publish(ACTION_PAUSE)
+            self.change_behaviour(BEHAVIOUR_COLLISION_AVOIDANCE, STATE_ACTIVE_RUNNING, BEHAVIOUR_OBJECT_NAVIGATION, STATE_ACTIVE_PAUSED)
+        
+        self.out_of_controlling_state_lock.release()
+        rospy.loginfo("Out of controlling state lock released")
+
+
+    def avoidance_behaviour_finish(self):
+        '''
+        Triggered when obstacle avoidance detects something and needs to take over.
+        Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
+        will override a controlling behaviour.
+        '''
+        
+        self.out_of_controlling_state_lock.acquire()
+        rospy.loginfo("Out of controlling state lock acquired")
+
+        self.return_to_previous_behaviour()
+        
+        self.out_of_controlling_state_lock.release()
+        rospy.loginfo("Out of controlling state lock released")
+
+    
+    def recovery_behaviour_run(self):
+        pass
+
+
+    def recovery_behaviour_finished(self):
+        pass
+
+
+    def object_navigation_run(self):
+        pass
+
+
+    def object_navigation_resume(self):
+        pass
+
+
+    def object_navigation_reached_object(self):
+        pass
 
 
     def go_to_next_waypoint(self):
