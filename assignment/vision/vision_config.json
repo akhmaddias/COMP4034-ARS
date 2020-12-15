@@ -1,0 +1,18 @@
+{
+    "scale_down": 4,
+    "gauss_kernel_size": 15,
+    "contour_size_threshold": 20,
+
+    "targets": [
+        {
+            "name": "Fire Hydrant",
+            "expected_size": 0,
+            "h": 10,
+            "s": 240,
+            "v": 40,
+            "h_range": 25,
+            "s_range": 30,
+            "v_range": 100 
+        }
+    ]
+}
