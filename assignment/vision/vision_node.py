@@ -10,7 +10,7 @@ from vision_msgs.msg import Detection3DArray, Detection3D, ObjectHypothesisWithP
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
 
-DEBUG_COLOURS = True
+DEBUG = True
 DEBUG_SAMPLE_RADIUS = 10  # Radius not accurate as its a square
 
 
@@ -26,10 +26,10 @@ class DetectableObject(object):
         self.s_range = s_range
         self.v_range = v_range
 
-        self.hsv_lo = np.array([(self.h - self.h_range / 2) % 128,
+        self.hsv_lo = np.array([(self.h - self.h_range / 2) % 180,
                                 max(self.s - self.s_range / 2, 0),
                                 max(self.v - self.v_range / 2, 0)])
-        self.hsv_hi = np.array([(self.h + self.h_range / 2) % 128,
+        self.hsv_hi = np.array([(self.h + self.h_range / 2) % 180,
                                 min(self.s + self.s_range / 2, 255),
                                 min(self.v + self.v_range / 2, 255)])
 
@@ -47,17 +47,18 @@ class DetectableObject(object):
                                                   self.hsv_lo[1],
                                                   self.hsv_lo[2]]), self.hsv_hi)
             mask = mask1 + mask2
-            # print(self.name, 1)
         else:
             mask = cv.inRange(blurred, self.hsv_lo, self.hsv_hi)
-            # print(self.name, 2)
 
-        closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, (5, 5))
+        closed = cv.morphologyEx(mask, cv.MORPH_OPEN, (11, 11))
+        # closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, (5, 5))
 
         _, contours, _ = cv.findContours(closed,
                                          cv.RETR_TREE,
                                          cv.CHAIN_APPROX_SIMPLE)
-        cv.imshow(self.name + 'mask', closed)
+                                         
+        if DEBUG:
+            cv.imshow('Mask: {0}'.format(self.name), closed)
 
         matches = 0
         best_contour = None
@@ -78,7 +79,10 @@ class DetectableObject(object):
         if matches > 1:
             warnmsg = 'Found {0} (>1) contour was found for {1}, consider \
                        tweaking the config!'.format(matches, self.name)
-            rospy.logwarn(warnmsg)
+            if DEBUG:
+                rospy.logwarn(warnmsg)
+            else:
+                rospy.logdebug(warnmsg)
         return best_contour
 
 
@@ -96,7 +100,7 @@ class Classifier():
 
     def __init__(self):
         self.targets = []
-        self.last_detected = {}
+        self.last_detected = set()
 
         roshome = os.getenv('ROS_HOME') or os.path.expanduser('~/.ros')
         self.load_config('{}/vision_config.json'.format(roshome))
@@ -134,20 +138,21 @@ class Classifier():
          - img : OpenCV Image (Numpy Array)
 
         RETURNS:
-         - A list of dicts, each dict will contain the keys:
-             - object: str
+         - A list of tuples, each tuple will contain the keys:
+             - object_name: str
              - x: float
              - y: float
-             - size_x: float
-             - size_y: float
         '''
-        detected = {}
+        detected = []
         for target in self.targets:
             result = target.find_in_image(img, self.config)
             if result:
                 x, y = result
-                rospy.loginfo('I can see {0} at x={1} y={2}'.format(
-                    target.name, *result))
+                if DEBUG:
+                    rospy.loginfo('I can see {0} at x={1} y={2}'.format(
+                        target.name, *result))
+                detected.append((target.name, x, y))
+        return detected
 
 
 class ROSNode():
@@ -166,12 +171,18 @@ class ROSNode():
         scale_down = self.classifier.scale_down
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
+
+            # Nothing good ever happens in the bottom half of the image
+            h, w, _ = cv_image.shape
+            cv_image = cv_image[:int(h / 2), :, :]
+
             cv_image_resized = cv.resize(cv_image,
                                          (cv_image.shape[1] / scale_down,
                                           cv_image.shape[0] / scale_down))
+
             image_hsv = cv.cvtColor(cv_image_resized, cv.COLOR_BGR2HSV)
 
-            if DEBUG_COLOURS:
+            if DEBUG:
                 self.debug_colours(image_hsv.copy())
 
             self.classifier.classify(image_hsv)
