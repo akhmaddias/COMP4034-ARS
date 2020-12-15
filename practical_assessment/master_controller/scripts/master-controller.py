@@ -196,32 +196,40 @@ class Controller():
             'object_control', Int32, self.object_control_callback)
 
 
-    def mapping_control_callback(self):
+    def mapping_control_callback(self, msg):
+        if msg.data == 0:
+            self.mapping_reached_waypoint()
+
+
+    def object_detection_type_callback(self, msg):
+        self.object_detection_detected(str(msg.data))
+
+
+    def object_detection_pose_callback(self, msg):
         pass
 
 
-    def object_detection_type_callback(self):
+    def collision_control_callback(self, msg):
+        if msg.data == 1:
+            self.collision_avoidance_run()
+        if msg.data == 0:
+            self.collision_avoidance_finish()
+
+
+    def recovery_control_callback(self, msg):
+        if msg.data == 1:
+            self.recovery_behaviour_run()
+        if msg.data == 0:
+            self.recovery_behaviour_finished()
+
+
+    def object_position_callback(self, msg):
         pass
 
 
-    def object_detection_pose_callback(self):
-        pass
-
-
-    def collision_control_callback(self):
-        pass
-
-
-    def recovery_control_callback(self):
-        pass
-
-
-    def object_position_callback(self):
-        pass
-
-
-    def object_control_callback(self):
-        pass
+    def object_control_callback(self, msg):
+        if msg.data == 0:
+            self.object_navigation_reached_object(0.0, 0.0)
 
 
     def change_behaviour(self, current_behaviour, current_behaviour_new_state, new_behaviour, new_behaviour_new_state):
@@ -428,7 +436,7 @@ class Controller():
         rospy.loginfo("Out of controlling state lock released")
 
 
-    def avoidance_behaviour_run(self):
+    def collision_avoidance_run(self):
         '''
         Triggered when obstacle avoidance detects something and needs to take over.
         Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
@@ -450,7 +458,7 @@ class Controller():
         rospy.loginfo("Out of controlling state lock released")
 
 
-    def avoidance_behaviour_finish(self):
+    def collision_avoidance_finish(self):
         '''
         Triggered when obstacle avoidance is no longer detecting anything.
         Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
@@ -678,7 +686,6 @@ def main():
     '''
 
     rospy.init_node('master-controller', anonymous=True)
-    Controller()
     try:
         rospy.spin()
     except KeyboardInterrupt:
