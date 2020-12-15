@@ -46,6 +46,7 @@ BEHAVIOUR_MAPPING = 0
 BEHAVIOUR_OBJECT_NAVIGATION = 1
 COLLISION_AVOIDANCE = 2
 BEHAVIOUR_RECOVERY = 3
+BEHAVIOUR_OBJECT_DETECTION = 4
 
 #  Control
 ACTION_START = 1
@@ -333,16 +334,33 @@ class Controller():
                 self.mapping_run()
 
             else:  # If no attempts remaining on the current waypoint, goto the next waypoint
-                self.skip_waypoint(self.waypoints[self.waypoint_current])
+                self.set_waypoint_skipped(self.waypoints[self.waypoint_current])
                 self.waypoint_current =+1
                 self.go_to_next_waypoint()
 
 
     def mapping_reached_waypoint(self):
         '''
-        Triggered then mapping reports that it has reached its assigned waypoint.
+        Triggered when mapping reports that it has reached its assigned waypoint.
         '''
-        pass
+        self.set_waypoint_visited(self.waypoints[self.waypoint_current])
+        if self.is_room_visited(self.room):
+            self.room =+ 1
+        
+        self.go_to_next_waypoint()
+
+
+    def mapping_override(self, behaviour):
+        '''
+        Called by one of the higher-priority nodes in order to take over control
+        '''
+
+        if behaviour == BEHAVIOUR_OBJECT_DETECTION:
+            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_STOPPED, BEHAVIOUR_OBJECT_NAVIGATION, STATE_ACTIVE_RUNNING)
+            self.mapping_control_publisher.publish(ACTION_STOP)
+        else:
+            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_STOPPED, behaviour, STATE_ACTIVE_RUNNING)
+            self.mapping_control_publisher.publish(ACTION_PAUSE)
 
 
     def go_to_next_waypoint(self):
@@ -353,6 +371,7 @@ class Controller():
         next_id = self.get_next_waypoint
         if next_id == -1:
             self.change_behaviour(BEHAVIOUR_MAPPING, STATE_INACTIVE, BEHAVIOUR_NONE, 0)
+            self.mapping_control_publisher.publish(ACTION_STOP)
             self.object_finding_failed()
         else:
             self.waypoint_current = next_id
@@ -367,10 +386,10 @@ class Controller():
         '''
         for waypoint in self.waypoints:
             if waypoint["room"] == self.room and waypoint["id"] >= self.waypoint_current:
-                self.skip_waypoint(waypoint)
+                self.set_waypoint_skipped(waypoint)
 
 
-    def skip_waypoint(self, waypoint):
+    def set_waypoint_skipped(self, waypoint):
         '''
         Marks a waypoint as needing re-visiting.
         '''
@@ -378,6 +397,29 @@ class Controller():
         waypoint["re-visit"] = True
         waypoint["attempt"] = 0
         self.waypoints_skipped =+ 1
+
+
+    def set_waypoint_visited(self, waypoint):
+        '''
+        Marks a waypoint as needing re-visiting.
+        '''
+        waypoint["visited"] = True
+        waypoint["re-visit"] = False
+        waypoint["attempt"] = 0
+        self.waypoints_visited =+ 1
+
+
+    def is_room_visited(self, room):
+        '''
+        Verifies that the current room has been completely visited
+        '''
+        if not self.get_next_waypoint == -1:
+            if self.waypoints[self.waypoint_current]["room"] == room:
+                return False
+            else:
+                return True
+        else:
+            return True
 
 
     def get_next_waypoint(self):
