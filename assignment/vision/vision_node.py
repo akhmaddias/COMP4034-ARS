@@ -15,9 +15,8 @@ DEBUG_SAMPLE_RADIUS = 10  # Radius not accurate as its a square
 
 class DetectableObject(object):
 
-    def __init__(self, name, expected_size, h, s, v, h_range, s_range, v_range):
+    def __init__(self, name, h, s, v, h_range, s_range, v_range):
         self.name = name
-        self.expected_size = expected_size
         self.h = h
         self.s = s
         self.v = v
@@ -85,16 +84,6 @@ class DetectableObject(object):
         return best_contour
 
 
-class DetectableTextObject(DetectableObject):
-
-    def __init__(self, name, expected_size, h, s, v, h_range, s_range, v_range):
-        super(DetectableTextObject, self).__init__(self,
-                                                   name,
-                                                   expected_size,
-                                                   h, s, v,
-                                                   h_range, s_range, v_range)
-
-
 class Classifier():
 
     def __init__(self):
@@ -114,7 +103,6 @@ class Classifier():
                 for target in self.config['targets']:
                     self.targets.append(DetectableObject(
                         target['name'],
-                        target['expected_size'],
                         target['h'],
                         target['s'],
                         target['v'],

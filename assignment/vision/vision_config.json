@@ -6,7 +6,6 @@
     "targets": [
         {
             "name": "Fire Hydrant",
-            "expected_size": 0,
             "h": 10,
             "s": 240,
             "v": 40,
@@ -16,7 +15,6 @@
         },
         {
             "name": "Green Box",
-            "expected_size": 0,
             "h": 60,
             "s": 240,
             "v": 100,
@@ -26,7 +24,6 @@
         },
         {
             "name": "Blue Postbox",
-            "expected_size": 0,
             "h": 105,
             "s": 140,
             "v": 80,
@@ -36,14 +33,12 @@
         },
         {
             "name": "Black and White 5",
-            "expected_size": 0,
             "h": 90,
             "s": 3,
             "v": 10,
             "h_range": 180,
             "s_range": 10,
-            "v_range": 20,
-            "text": "5"
+            "v_range": 20
         }
 
     ]
