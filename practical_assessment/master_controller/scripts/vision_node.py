@@ -4,7 +4,7 @@ import os
 import json
 import numpy as np
 
-from followbot.msg import DetectedObject
+from master_controller.msg import DetectedObject
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
