@@ -64,7 +64,7 @@ NO_IN_RECOVERY = 0
 
 class Controller():
     '''
-    The controller class
+    The controller class.
     '''
 
     def __init__(self):
@@ -112,7 +112,7 @@ class Controller():
 
     def init_waypoints(self):
         '''
-        Initialises waypoint array
+        Initialises waypoint array.
         '''
         rospy.loginfo("Initialising waypoints")
         i = 0
@@ -133,7 +133,7 @@ class Controller():
 
     def init_objects(self):
         '''
-        Initialises objects array
+        Initialises objects array.
         '''
         rospy.loginfo("Initialising objects")
         i = 0
@@ -349,7 +349,7 @@ class Controller():
 
     def mapping_send_coordinates(self, waypoint):
         '''
-        Translates and then sends a waypoint to the mapping node
+        Translates and then sends a waypoint to the mapping node.
         '''
         pose = Pose()
         pose.position.x = waypoint["x"]
@@ -422,7 +422,7 @@ class Controller():
 
     def mapping_override(self, behaviour):
         '''
-        Called by one of the higher-priority nodes in order to take over control
+        Called by one of the higher-priority nodes in order to take over control.
         '''
 
         if behaviour == BEHAVIOUR_OBJECT_DETECTION:
@@ -450,17 +450,22 @@ class Controller():
         self.out_of_controlling_state_lock.acquire()
         rospy.loginfo("Out of controlling state lock acquired")
 
-        self.object_current = self.get_object_id(object_name)  # TODO catch -1
+        object_id = self.get_object_id(object_name) 
+        if object_id != -1:
+            self.object_current = object_id 
 
-        if self.state_mapping == STATE_ACTIVE_RUNNING and not (
-            self.objects[self.object_current]["visited"] or self.objects[self.object_current]["visiting"]
-        ):
-            self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
-            self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
-                STATE_ACTIVE_STOPPED,
-                BEHAVIOUR_OBJECT_NAVIGATION,
-                STATE_ACTIVE_RUNNING)
-            self.object_navigation_run()
+            if self.state_mapping == STATE_ACTIVE_RUNNING and not (
+                self.objects[self.object_current]["visited"] or self.objects[self.object_current]["visiting"]
+            ):
+                self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
+                self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
+                    STATE_ACTIVE_STOPPED,
+                    BEHAVIOUR_OBJECT_NAVIGATION,
+                    STATE_ACTIVE_RUNNING)
+                self.object_navigation_run()
+
+        else:
+            rospy.loginfo("Unrecognised object presented")
 
         self.out_of_controlling_state_lock.release()
         rospy.loginfo("Out of controlling state lock released")
@@ -571,7 +576,7 @@ class Controller():
 
     def object_navigation_resume(self):
         '''
-        Resumes navigation to an object from a paused state
+        Resumes navigation to an object from a paused state.
         '''
         self.object_navigation_control_publisher.publish(ACTION_START)
 
@@ -600,7 +605,7 @@ class Controller():
 
     def get_object_id(self, object_name):
         '''
-        Returns an object id based on the object name
+        Returns an object id based on the object name.
         '''
         for object_instance in self.objects:
             if object_instance["name"] == object_name:
@@ -657,7 +662,7 @@ class Controller():
 
     def is_room_visited(self, room):
         '''
-        Verifies that the current room has been completely visited
+        Verifies that the current room has been completely visited.
         '''
         if self.get_next_waypoint != -1:
             if self.waypoints[self.waypoint_current]["room"] == room:
