@@ -27,9 +27,21 @@ from master_controller.msg import DetectedObject
 
 #  Overall parameters
 WAYPOINTS = [
-    (1,1,1,0),
-    (1,1,1,0)
- ] #  Waypoints format (X, Y, Z, room_number)
+    (-0.25, -1, 0, 0),
+(0.25, -4, 0, 1),
+(-3, -4, 0, 2),
+(-0.25, -1, 0, 3),
+(-0.25, 4.2, 0, 4),
+(3.75, 4.2, 0, 5),
+(3.75, 2, 0, 6),
+(1, 2, 0, 7),
+(-0.25, 4.2, 0, 8),
+(-0.25, - 1, 0, 9),
+(5.5, 1, 0, 10),
+(5.5, 4, 0, 11),
+(5.5, -4, 0, 12)
+]
+
 OBJECTS = [
     "Fire Hydrant",
     "Green Box",
