@@ -59,7 +59,7 @@ REACHED_OBJECT = 0
 COLLISION_TO_AVOID = 1
 NO_COLLISION_TO_AVOID = 0
 IN_RECOVERY = 1
-NO_IN_RECOVERY = 0
+NOT_IN_RECOVERY = 0
 
 
 class Controller():
@@ -197,9 +197,9 @@ class Controller():
 
 
     def mapping_control_callback(self, msg):
-        if msg.data == 0:
+        if msg.data == REACHED_WAYPOINT:
             self.mapping_reached_waypoint()
-        elif msg.data != 1 or msg.data != 2 or msg.data != -1:
+        elif msg.data != ACTION_START or msg.data != ACTION_PAUSE or msg.data != ACTION_STOP:
             rospy.loginfo("Unhandled mapping control callback message")
 
 
@@ -212,21 +212,21 @@ class Controller():
 
 
     def collision_control_callback(self, msg):
-        if msg.data == 1:
+        if msg.data == COLLISION_TO_AVOID:
             self.collision_avoidance_run()
-        elif msg.data == 0:
+        elif msg.data == NO_COLLISION_TO_AVOID:
             self.collision_avoidance_finish()
-        elif msg.data != -1:
+        elif msg.data != ACTION_STOP:
             rospy.loginfo("Unhandled collision avoidance callback message")
 
 
 
     def recovery_control_callback(self, msg):
-        if msg.data == 1:
+        if msg.data == IN_RECOVERY:
             self.recovery_behaviour_run()
-        elif msg.data == 0:
+        elif msg.data == NOT_IN_RECOVERY:
             self.recovery_behaviour_finished()
-        elif msg.data != -1:
+        elif msg.data != ACTION_STOP:
             rospy.loginfo("Unhandled collision avoidance callback message")
 
 
@@ -235,9 +235,9 @@ class Controller():
 
 
     def object_control_callback(self, msg):
-        if msg.data == 0:
+        if msg.data == REACHED_OBJECT:
             self.object_navigation_reached_object(0.0, 0.0)
-        elif msg.data != 1 or msg.data != 2 or msg.data != -1:
+        elif msg.data != ACTION_START or msg.data != ACTION_PAUSE or msg.data != ACTION_STOP:
             rospy.loginfo("Unhandled object navigation control callback message")
 
 
