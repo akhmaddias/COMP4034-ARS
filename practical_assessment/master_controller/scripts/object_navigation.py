@@ -32,9 +32,9 @@ class ObjectNavigation():
         self.is_goal_sent = False
 
         # init subscribers
-        self.object_type_sub = rospy.Subscriber("/object_navigation_type",
+        self.object_type_sub = rospy.Subscriber("object_navigation_type",
                                                 String, self.object_type_cb)
-        self.object_pose_sub = rospy.Subscriber("/object_navigation_pose",
+        self.object_pose_sub = rospy.Subscriber("object_navigation_pose",
                                                 Pose, self.object_pose_cb)
         self.odom_sub = rospy.Subscriber("/amcl_pose",
                                          PoseWithCovarianceStamped,

@@ -214,7 +214,7 @@ class Controller():
         self.object_navigation_pose_publisher = rospy.Publisher(
             'object_navigation_pose', Pose, queue_size=10)
         self.object_navigation_detected_publisher = rospy.Publisher(
-            'object_navigation_detected', Pose, queue_size=10)
+            'object_navigation_detected', DetectedObject, queue_size=10)
         self.object_navigation_control_publisher = rospy.Publisher(
             'object_control', Int32, queue_size=10)
         self.object_pose_subscriber = rospy.Subscriber(

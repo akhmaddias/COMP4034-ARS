@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 import actionlib
 
@@ -68,3 +69,17 @@ class MapNavigator():
                 self.success_pub.publish(ACTION_SUCCESS)
             elif self.action_client.get_state() != GoalStatus.ACTIVE:
                 rospy.logerr("Failed to reach target at {}".format(self.target_pose))
+
+def main():
+    '''
+    Is initially called, inits the node and starts the class.
+    '''
+    MapNavigator().check_for_success()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
