@@ -2,7 +2,7 @@
 '''
 The root controller class for the Turtlebot3 Waffle.
 This implements an object search behaviour that enables the robot to search
-for predefined objects visible in the robot’s camera. The controller selects
+for predefined objects visible in the robot's camera. The controller selects
 the most appropriate behaviour based on what is occuring.
 
 Behaviour priority is as follows:
@@ -106,8 +106,15 @@ class Controller():
 
         self.init_pub_subs()
 
-        self.change_behaviour(BEHAVIOUR_NONE, 0, BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING)
-        self.mapping_run()
+        next_id = self.get_next_waypoint()
+        if next_id == (-1):
+            rospy.logwarn("No waypoints to visit!")
+            self.object_finding_failed()
+        else:
+            rospy.loginfo("Going to waypoint " + next_id)
+            self.waypoint_current = next_id
+            self.change_behaviour(BEHAVIOUR_NONE, 0, BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING)
+            self.mapping_run()
 
 
     def init_waypoints(self):
@@ -127,7 +134,7 @@ class Controller():
             waypoint_details["visited"] = False
             waypoint_details["re-visit"] = False
 
-            self.waypoints[i] = waypoint_details
+            self.waypoints.append(waypoint_details)
             i += 1
 
 
@@ -147,7 +154,7 @@ class Controller():
             object_details["visited"] = False
             object_details["visiting"] = False
 
-            self.objects[i] = object_details
+            self.objects.append(object_details)
             i += 1
 
 
@@ -666,7 +673,7 @@ class Controller():
         Instructs mapping to go to the next waypoint if one is available. End the
         program if not.
         '''
-        next_id = (self.get_next_waypoint)
+        next_id = self.get_next_waypoint()
         if next_id == (-1):
             rospy.logwarn("No waypoints to visit!")
             self.change_behaviour(BEHAVIOUR_MAPPING, STATE_INACTIVE, BEHAVIOUR_NONE, 0)
@@ -716,7 +723,7 @@ class Controller():
         '''
         Verifies that the current room has been completely visited.
         '''
-        if self.get_next_waypoint != -1:
+        if self.get_next_waypoint() != -1:
             if self.waypoints[self.waypoint_current]["room"] == room:
                 return False
             else:
@@ -780,8 +787,8 @@ class Controller():
         Shutdown method in the event of ctrl + c.
         '''
         self.shutting_down = True  # Terminates continuous loops
-        rospy.logwarn("Stopping")
-        rospy.sleep(1)
+        rospy.logwarn("Stopping - shutdown")
+        rospy.signal_shutdown("Stopping - shutdown")
 
 
 def main():
@@ -789,12 +796,13 @@ def main():
     Is initially called, inits the node and starts the class.
     '''
 
-    rospy.init_node('master-controller', anonymous=True)
+    rospy.init_node('master_controller', anonymous=True)
+    Controller()
     try:
         rospy.spin()
     except KeyboardInterrupt:
-        rospy.logwarn("Stopping")
-        rospy.sleep(1)
+        rospy.logwarn("Stopping - main")
+        rospy.signal_shutdown("Stopping - main")
 
 
 if __name__ == '__main__':
