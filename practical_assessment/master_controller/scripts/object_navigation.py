@@ -75,7 +75,7 @@ class ObjectNavigation():
             if not self.is_goal_sent:
                 self.navigate_to_object()
         elif self.object_action == STOP:
-            if self.is_goal_sent == True:
+            if self.is_goal_sent:
                 rospy.loginfo("Stopping object navigation...")
                 self.ac.cancel_goal()
             self.is_goal_sent = False
@@ -145,8 +145,7 @@ class ObjectNavigation():
             self.object_control_pub.publish(REACHED)
         else:
             rospy.logerr("Failed to reach object {} will try again"
-                         .format(self.object_type))
-            return False
+                         .format(self.object_type))\
 
 
 if __name__ == '__main__':
