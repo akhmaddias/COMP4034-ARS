@@ -23,15 +23,19 @@ import rospy
 
 from geometry_msgs.msg import Pose
 from std_msgs.msg import Int32, String
+from master_controller.msg import DetectedObject
 
 #  Overall parameters
-WAYPOINTS = () #  Waypoints format (X, Y, Z, room_number)
-OBJECTS = (
+WAYPOINTS = [
+    (1,1,1,0),
+    (1,1,1,0)
+ ] #  Waypoints format (X, Y, Z, room_number)
+OBJECTS = [
     "Fire Hydrant",
     "Green Box",
     "Blue Postbox",
     "Black and White 5"
-    )
+]
 MAX_ATTEMPTS_PER_WAYPOINT = 5
 LOOPING = False
 
@@ -90,7 +94,7 @@ class Controller():
         self.waypoints = []
         self.waypoints_visited = 0
         self.waypoints_skipped = 0
-        self.waypoint_current = 0
+        self.waypoint_current = -1
         self.room = 0
         self.objects_found = 0
 
@@ -111,8 +115,9 @@ class Controller():
             rospy.logwarn("No waypoints to visit!")
             self.object_finding_failed()
         else:
-            rospy.loginfo("Going to waypoint " + next_id)
+            rospy.loginfo("Going to waypoint {}".format(next_id))
             self.waypoint_current = next_id
+            self.behaviour_precious = BEHAVIOUR_MAPPING
             self.change_behaviour(BEHAVIOUR_NONE, 0, BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING)
             self.mapping_run()
 
@@ -149,6 +154,8 @@ class Controller():
             object_details["id"] = i
             object_details["x"] = 0.0
             object_details["y"] = 0.0
+            object_details["size_x"] = 0.0
+            object_details["size_y"] = 0.0
             object_details["z"] = 0.0
             object_details["name"] = detectable_object
             object_details["visited"] = False
@@ -177,6 +184,8 @@ class Controller():
             'object_detection_type', String, self.object_detection_type_callback)
         self.object_detection_pose_subscriber = rospy.Subscriber(
             'object_detection_pose', Pose, self.object_detection_pose_callback)
+        self.object_detection_subscriber = rospy.Subscriber(
+            '/objects', DetectedObject, self.object_detection_callback)
 
         #  Collission avoidance pub/subs
         self.collision_control_publisher = rospy.Publisher(
@@ -195,6 +204,8 @@ class Controller():
             'object_navigation_type', String, queue_size=10)
         self.object_navigation_pose_publisher = rospy.Publisher(
             'object_navigation_pose', Pose, queue_size=10)
+        self.object_navigation_detected_publisher = rospy.Publisher(
+            'object_navigation_detected', Pose, queue_size=10)
         self.object_navigation_control_publisher = rospy.Publisher(
             'object_control', Int32, queue_size=10)
         self.object_pose_subscriber = rospy.Subscriber(
@@ -206,16 +217,20 @@ class Controller():
     def mapping_control_callback(self, msg):
         if msg.data == REACHED_WAYPOINT:
             self.mapping_reached_waypoint()
-        elif msg.data != ACTION_START or msg.data != ACTION_PAUSE or msg.data != ACTION_STOP:
+        elif msg.data != ACTION_START and msg.data != ACTION_PAUSE and msg.data != ACTION_STOP:
             rospy.logwarn("Unhandled Mapping Control callback message!")
+            rospy.logwarn("{}".format(msg.data))
 
 
     def object_detection_type_callback(self, msg):
-        self.object_detection_detected(str(msg.data))
+        rospy.logwarn("Unhandled Object Detection Type callback message!")
 
 
     def object_detection_pose_callback(self, msg):
         rospy.logwarn("Unhandled Object Detection Pose callback message!")
+
+    def object_detection_callback(self, msg):
+        self.object_detection_detected(msg.object_name, msg.x, msg.y, msg.size_x, msg.size_y)
 
 
     def collision_control_callback(self, msg):
@@ -243,7 +258,7 @@ class Controller():
     def object_control_callback(self, msg):
         if msg.data == REACHED_OBJECT:
             self.object_navigation_reached_object(0.0, 0.0)
-        elif msg.data != ACTION_START or msg.data != ACTION_PAUSE or msg.data != ACTION_STOP:
+        elif msg.data != ACTION_START and msg.data != ACTION_PAUSE and msg.data != ACTION_STOP:
             rospy.logwarn("Unhandled Object Navigation Control callback message")
 
 
@@ -283,7 +298,18 @@ class Controller():
         self.object_navigation_control_publisher.publish(ACTION_PAUSE)
         rospy.loginfo("Sent PAUSE to Object Navigation")
 
-    
+
+    def object_navigation_send_detected(self):
+        msg = DetectedObject()
+        msg.x = self.objects[self.object_current]["x"]
+        msg.y = self.objects[self.object_current]["y"]
+        msg.size_x = self.objects[self.object_current]["size_x"]
+        msg.size_y = self.objects[self.object_current]["size_y"]
+        msg.object_name = self.objects[self.object_current]["name"]
+        self.object_navigation_detected_publisher.publish(msg)
+        rospy.loginfo("Sent object details to Object Navigation")
+
+
     def object_navigation_send_object_coordinates(self):
         pose = Pose()
         pose.position.x = self.objects[self.object_current]["x"]
@@ -336,11 +362,14 @@ class Controller():
         elif behaviour == BEHAVIOUR_RECOVERY:
             past_state = self.state_recovery
             self.state_recovery = new_state
+        elif behaviour == BEHAVIOUR_COLLISION_AVOIDANCE:
+            past_state = self.state_recovery
+            self.state_recovery = new_state
 
-        rospy.loginfo("" + self.get_behaviour_name(behaviour) +
-            " changed state from " +
-            self.get_state_name(past_state) +
-            " to " + self.get_state_name(new_state))
+        rospy.loginfo("{} changed state from {} to {}".format(
+            self.get_behaviour_name(behaviour),
+            self.get_state_name(past_state),
+            self.get_state_name(new_state)))
 
 
     def get_behaviour_name(self, behaviour):
@@ -354,6 +383,8 @@ class Controller():
             behaviour_string = "Object navigation"
         elif behaviour == BEHAVIOUR_RECOVERY:
             behaviour_string = "Recovery behaviour"
+        elif behaviour == BEHAVIOUR_COLLISION_AVOIDANCE:
+            behaviour_string = "Collision avoidance"
         elif behaviour == BEHAVIOUR_NONE:
             behaviour_string = "None"
         return behaviour_string
@@ -416,6 +447,7 @@ class Controller():
 
         if past_behaviour == BEHAVIOUR_MAPPING:
             self.mapping_resume()
+            
         elif past_behaviour == BEHAVIOUR_OBJECT_NAVIGATION:
             self.object_navigation_resume()
 
@@ -457,17 +489,15 @@ class Controller():
                 else:  # If resuming, objects found but still more to go
                     self.skip_remaining_room_waypoints()  # Go to the next room
                     self.go_to_next_waypoint()
-
+    
             # If no objects found and there are attempts remaining on the current waypoint
             elif self.waypoints[self.waypoint_current]["attempt"] < MAX_ATTEMPTS_PER_WAYPOINT:
-                self.waypoints[self.waypoint_current]["attempt"] =+ 1
-                self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING,
-                    self.behaviour_previous, STATE_INACTIVE)
+                self.waypoints[self.waypoint_current]["attempt"] += 1
                 self.mapping_run()
 
             else:  # If no attempts remaining on the current waypoint, goto the next waypoint
                 self.set_waypoint_skipped(self.waypoints[self.waypoint_current])
-                self.waypoint_current =+1
+                self.waypoint_current +=1
                 self.go_to_next_waypoint()
 
 
@@ -477,7 +507,7 @@ class Controller():
         '''
         self.set_waypoint_visited(self.waypoints[self.waypoint_current])
         if self.is_room_visited(self.room):
-            self.room =+ 1
+            self.room += 1
 
         self.go_to_next_waypoint()
 
@@ -500,7 +530,7 @@ class Controller():
             self.mapping_send_pause()
 
 
-    def object_detection_detected(self, object_name):
+    def object_detection_detected(self, object_name, coordinate_x, coordinate_y, size_x, size_y):
         '''
         Called when an object is detected.
         If mapping is currently active (and therefore not overridden), and the object that has been
@@ -511,9 +541,13 @@ class Controller():
         self.out_of_controlling_state_lock.acquire()
         rospy.logdebug("Out of controlling state lock acquired")
 
-        object_id = self.get_object_id(object_name) 
+        object_id = self.get_object_id(object_name)
         if object_id != -1:
-            self.object_current = object_id 
+            self.object_current = object_id
+            self.objects[self.object_current]["x"] = coordinate_x
+            self.objects[self.object_current]["y"] = coordinate_y
+            self.objects[self.object_current]["size_x"] = size_x
+            self.objects[self.object_current]["size_y"] = size_y
 
             if self.state_mapping == STATE_ACTIVE_RUNNING and not (
                 self.objects[self.object_current]["visited"] or self.objects[self.object_current]["visiting"]
@@ -543,18 +577,8 @@ class Controller():
 
         if self.state_mapping == STATE_ACTIVE_RUNNING:
             self.mapping_override(BEHAVIOUR_COLLISION_AVOIDANCE)
-            self.change_behaviour(BEHAVIOUR_COLLISION_AVOIDANCE,
-                STATE_ACTIVE_RUNNING,
-                BEHAVIOUR_MAPPING,
-                STATE_ACTIVE_PAUSED)
         elif self.state_object_navigation == STATE_ACTIVE_RUNNING:
-            self.object_navigation_send_pause()
             self.object_navigation_override()
-            self.change_behaviour(BEHAVIOUR_COLLISION_AVOIDANCE,
-                STATE_ACTIVE_RUNNING,
-                BEHAVIOUR_OBJECT_NAVIGATION,
-                STATE_ACTIVE_PAUSED)
-
         self.out_of_controlling_state_lock.release()
         rospy.logdebug("Out of controlling state lock released")
 
@@ -586,17 +610,9 @@ class Controller():
         rospy.logdebug("Out of controlling state lock acquired")
 
         if self.state_mapping == STATE_ACTIVE_RUNNING:
-            self.mapping_send_pause()
-            self.change_behaviour(BEHAVIOUR_RECOVERY,
-                STATE_ACTIVE_RUNNING,
-                BEHAVIOUR_MAPPING, 
-                STATE_ACTIVE_PAUSED)
+            self.mapping_override(BEHAVIOUR_RECOVERY)
         elif self.state_object_navigation == STATE_ACTIVE_RUNNING:
-            self.object_navigation_send_pause()
-            self.change_behaviour(BEHAVIOUR_RECOVERY,
-                STATE_ACTIVE_RUNNING,
-                BEHAVIOUR_OBJECT_NAVIGATION,
-                STATE_ACTIVE_PAUSED)
+            self.object_navigation_override()
 
         self.out_of_controlling_state_lock.release()
         rospy.logdebug("Out of controlling state lock released")
@@ -622,9 +638,7 @@ class Controller():
         Called there is an object to navigate to. Details of the object should be supplied
         by setting the current_object.
         '''
-        self.object_navigation_send_object_type()
-
-        self.object_navigation_send_object_coordinates()
+        self.object_navigation_send_detected()
 
         self.object_navigation_send_start()
 
@@ -646,7 +660,7 @@ class Controller():
         self.objects[self.object_current]["x"] = x_coordinate
         self.objects[self.object_current]["y"] = y_coordinate
         self.objects[self.object_current]["z"] = 0.0
-        self.objects_found =+ 1
+        self.objects_found += 1
 
         self.return_to_specified_behaviour(BEHAVIOUR_MAPPING)
 
@@ -676,11 +690,11 @@ class Controller():
         next_id = self.get_next_waypoint()
         if next_id == (-1):
             rospy.logwarn("No waypoints to visit!")
-            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_INACTIVE, BEHAVIOUR_NONE, 0)
+            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_INACTIVE, self.behaviour_previous, 0)
             self.mapping_send_stop()
             self.object_finding_failed()
         else:
-            rospy.loginfo("Going to waypoint " + next_id)
+            rospy.loginfo("Going to waypoint {}".format(next_id))
             self.waypoint_current = next_id
             self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING,
                 self.behaviour_previous, STATE_INACTIVE)
@@ -704,8 +718,8 @@ class Controller():
         waypoint["visited"] = False
         waypoint["re-visit"] = True
         waypoint["attempt"] = 0
-        self.waypoints_skipped =+ 1
-        rospy.loginfo("Skipped waypoint " + waypoint["id"])
+        self.waypoints_skipped += 1
+        rospy.loginfo("Skipped waypoint {}".format(waypoint["id"]))
 
 
     def set_waypoint_visited(self, waypoint):
@@ -715,8 +729,8 @@ class Controller():
         waypoint["visited"] = True
         waypoint["re-visit"] = False
         waypoint["attempt"] = 0
-        self.waypoints_visited =+ 1
-        rospy.loginfo("Reached waypoint " + waypoint["id"])
+        self.waypoints_visited += 1
+        rospy.loginfo("Reached waypoint {}".format(waypoint["id"]))
 
 
     def is_room_visited(self, room):
