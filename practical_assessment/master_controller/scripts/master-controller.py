@@ -17,7 +17,6 @@ Behaviour priority is as follows:
 
 __author__      = "Lewis C Brand"
 
-import time
 import threading
 
 import rospy
@@ -97,7 +96,7 @@ class Controller():
 
         #  Goal tracking
         self.objects = []
-        self.object_current = 0
+        self.object_current = -1
         self.objects_found = 0
         self.objects_total = len(OBJECTS)
         self.objects_mapping_aware = 0
@@ -200,6 +199,8 @@ class Controller():
     def mapping_control_callback(self, msg):
         if msg.data == 0:
             self.mapping_reached_waypoint()
+        elif msg.data != 1 or msg.data != 2 or msg.data != -1:
+            rospy.loginfo("Unhandled mapping control callback message")
 
 
     def object_detection_type_callback(self, msg):
@@ -207,30 +208,37 @@ class Controller():
 
 
     def object_detection_pose_callback(self, msg):
-        pass
+        rospy.loginfo("Unhandled object detection pose callback message")
 
 
     def collision_control_callback(self, msg):
         if msg.data == 1:
             self.collision_avoidance_run()
-        if msg.data == 0:
+        elif msg.data == 0:
             self.collision_avoidance_finish()
+        elif msg.data != -1:
+            rospy.loginfo("Unhandled collision avoidance callback message")
+
 
 
     def recovery_control_callback(self, msg):
         if msg.data == 1:
             self.recovery_behaviour_run()
-        if msg.data == 0:
+        elif msg.data == 0:
             self.recovery_behaviour_finished()
+        elif msg.data != -1:
+            rospy.loginfo("Unhandled collision avoidance callback message")
 
 
     def object_position_callback(self, msg):
-        pass
+        rospy.loginfo("Unhandled object navigation position callback message")
 
 
     def object_control_callback(self, msg):
         if msg.data == 0:
             self.object_navigation_reached_object(0.0, 0.0)
+        elif msg.data != 1 or msg.data != 2 or msg.data != -1:
+            rospy.loginfo("Unhandled object navigation control callback message")
 
 
     def change_behaviour(
@@ -254,6 +262,7 @@ class Controller():
 
             self.change_behaviour_state(current_behaviour, current_behaviour_new_state)
             self.change_behaviour_state(new_behaviour, new_behaviour_new_state)
+
 
     def change_behaviour_state(self, behaviour, new_state):
         '''
@@ -336,6 +345,7 @@ class Controller():
             self.mapping_resume()
         elif past_behaviour == BEHAVIOUR_OBJECT_NAVIGATION:
             self.object_navigation_resume()
+
 
     def mapping_send_coordinates(self, waypoint):
         '''
