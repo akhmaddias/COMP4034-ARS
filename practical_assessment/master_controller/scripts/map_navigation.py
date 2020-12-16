@@ -30,11 +30,12 @@ class MapNavigator():
         self.control_sub = rospy.Subscriber("mapping_control", Int32, self.control_cb)
 
     def control_cb(self, command):
-        if command == ACTION_PAUSE:
+        rospy.loginfo("Received message")
+        if command.data == ACTION_PAUSE:
             self.paused = True
             self.stopped = False
             self.action_client.cancel_all_goals()
-        elif command == ACTION_START:
+        elif command.data == ACTION_START:
             self.paused = False
             self.stopped = False
             self.goto_target()
@@ -60,6 +61,7 @@ class MapNavigator():
                       format(*self.target))
 
     def check_for_success(self):
+        rospy.loginfo('Mapping active')
         while not rospy.is_shutdown():
             if self.stopped:
                 continue
