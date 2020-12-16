@@ -121,6 +121,13 @@ class Controller():
 
         self.init_pub_subs()
 
+    def controller_start(self):
+        '''
+        First method to run. Gets the first waypoint and prepares the state change.
+        '''
+        rospy.loginfo("Controller starting...")
+        rospy.sleep(1)
+        rospy.loginfo("Controller started")
         next_id = self.get_next_waypoint()
         if next_id == (-1):
             rospy.logwarn("No waypoints to visit!")
@@ -128,7 +135,7 @@ class Controller():
         else:
             rospy.loginfo("Going to waypoint {}".format(next_id))
             self.waypoint_current = next_id
-            self.behaviour_precious = BEHAVIOUR_MAPPING
+            self.behaviour_previous = BEHAVIOUR_MAPPING
             self.change_behaviour(
                 BEHAVIOUR_NONE, 0, BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING)
             self.mapping_run()
@@ -496,6 +503,7 @@ class Controller():
         '''
         self.set_waypoint_visited(self.waypoints[self.waypoint_current])
         if self.is_room_visited(self.room):
+            rospy.loginfo("Room {} completed".format(self.room))
             self.room += 1
 
         self.go_to_next_waypoint()
@@ -674,8 +682,8 @@ class Controller():
         else:
             rospy.loginfo("Going to waypoint {}".format(next_id))
             self.waypoint_current = next_id
-            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING,
-                                  self.behaviour_previous, STATE_INACTIVE)
+            # self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING,
+            #                       self.behaviour_previous, STATE_INACTIVE)
             self.mapping_run()
 
     def skip_remaining_room_waypoints(self):
@@ -712,7 +720,8 @@ class Controller():
         Verifies that the current room has been completely visited.
         '''
         if self.get_next_waypoint() != -1:
-            if self.waypoints[self.waypoint_current]["room"] == room:
+            next_id = self.get_next_waypoint()
+            if self.waypoints[next_id]["room"] == room:
                 return False
             else:
                 return True
@@ -772,6 +781,7 @@ class Controller():
         '''
         self.shutting_down = True  # Terminates continuous loops
         rospy.logwarn("Stopping - shutdown")
+        self.mapping_send_stop()
         rospy.signal_shutdown("Stopping - shutdown")
 
 
@@ -781,7 +791,7 @@ def main():
     '''
 
     rospy.init_node('master_controller', anonymous=True)
-    Controller()
+    Controller().controller_start()
     try:
         rospy.spin()
     except KeyboardInterrupt:
