@@ -97,6 +97,10 @@ class Classifier():
         '''
         Loads the json config for the classifier.
         '''
+        if not os.path.isfile(path):
+            rospy.logfatal('CANNOT FIND vision_config.json - THIS SHOULD BE ' +
+                'LOCATED IN YOUR ROSHOME (~/.ros/vision_config.json) ' + 
+                'Tried path {0}'.format(path))
         with open(path, 'r') as jsonfile:
             self.config = json.load(jsonfile)
             try:
