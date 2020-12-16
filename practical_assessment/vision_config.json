@@ -1,0 +1,45 @@
+{
+    "scale_down": 4,
+    "gauss_kernel_size": 15,
+    "contour_size_threshold": 800,
+
+    "targets": [
+        {
+            "name": "Fire Hydrant",
+            "h": 10,
+            "s": 240,
+            "v": 40,
+            "h_range": 25,
+            "s_range": 30,
+            "v_range": 100 
+        },
+        {
+            "name": "Green Box",
+            "h": 60,
+            "s": 240,
+            "v": 100,
+            "h_range": 5,
+            "s_range": 100,
+            "v_range": 200 
+        },
+        {
+            "name": "Blue Postbox",
+            "h": 105,
+            "s": 140,
+            "v": 80,
+            "h_range": 20,
+            "s_range": 60,
+            "v_range": 100 
+        },
+        {
+            "name": "Black and White 5",
+            "h": 90,
+            "s": 3,
+            "v": 10,
+            "h_range": 180,
+            "s_range": 10,
+            "v_range": 20
+        }
+
+    ]
+}
