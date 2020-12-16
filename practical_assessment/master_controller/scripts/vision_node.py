@@ -51,7 +51,7 @@ class DetectableObject(object):
         closed = cv.morphologyEx(mask, cv.MORPH_OPEN, (11, 11))
         # closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, (5, 5))
 
-        _, contours, _ = cv.findContours(closed,
+        contours, _ = cv.findContours(closed,
                                          cv.RETR_TREE,
                                          cv.CHAIN_APPROX_SIMPLE)
 
