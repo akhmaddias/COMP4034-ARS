@@ -27,10 +27,10 @@ from std_msgs.msg import Int32, String
 #  Overall parameters
 WAYPOINTS = () #  Waypoints format (X, Y, Z, room_number)
 OBJECTS = (
-    "fire hydrant",
-    "green box",
-    "mail box",
-    "number 5"
+    "Fire Hydrant",
+    "Green Box",
+    "Blue Postbox",
+    "Black and White 5"
     )
 MAX_ATTEMPTS_PER_WAYPOINT = 5
 LOOPING = False
