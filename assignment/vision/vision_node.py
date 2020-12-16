@@ -38,7 +38,7 @@ class DetectableObject(object):
 
         mask = None
         if self.hsv_lo[0] > self.hsv_hi[0]:  # We need to wrap around the hue spectrum
-            mask1 = cv.inRange(blurred.copy(), self.hsv_lo, np.array([128,
+            mask1 = cv.inRange(blurred.copy(), self.hsv_lo, np.array([180,
                                                                       self.hsv_hi[1],
                                                                       self.hsv_hi[2]]))
             mask2 = cv.inRange(blurred, np.array([0,
