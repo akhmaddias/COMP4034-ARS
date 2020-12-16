@@ -47,8 +47,10 @@ OBJECTS = [
     "Blue Postbox",
     "Black and White 5"
 ]
-MAX_ATTEMPTS_PER_WAYPOINT = 5
+MAX_REATTEMPTS_PER_WAYPOINT = 1
+MAX_REVISITS_PER_WAYPOINT = 2 
 LOOPING = False
+ENABLE_SKIP_ROOMS = False
 
 #  State flags
 STATE_ACTIVE_RUNNING = 1
@@ -75,6 +77,7 @@ COLLISION_TO_AVOID = 1
 NO_COLLISION_TO_AVOID = 0
 IN_RECOVERY = 1
 NOT_IN_RECOVERY = 0
+FAILED = 5
 
 
 class Controller():
@@ -104,6 +107,7 @@ class Controller():
         #  Navigation
         self.waypoints = []
         self.waypoints_visited = 0
+        self.waypoints_discarded = 0
         self.waypoints_skipped = 0
         self.waypoint_current = -1
         self.room = 0
@@ -120,6 +124,7 @@ class Controller():
         self.init_objects()
 
         self.init_pub_subs()
+        rospy.loginfo("Initialised")
 
     def controller_start(self):
         '''
@@ -154,8 +159,10 @@ class Controller():
             waypoint_details["z"] = waypoint[2]
             waypoint_details["room"] = waypoint[3]
             waypoint_details["attempt"] = 0
+            waypoint_details["re-visit_count"] = 0
             waypoint_details["visited"] = False
             waypoint_details["re-visit"] = False
+            waypoint_details["discarded"] = False
 
             self.waypoints.append(waypoint_details)
             i += 1
@@ -232,6 +239,8 @@ class Controller():
     def mapping_control_callback(self, msg):
         if msg.data == REACHED_WAYPOINT:
             self.mapping_reached_waypoint()
+        elif msg.data == FAILED:
+            self.mapping_failed()
         elif msg.data != ACTION_START and msg.data != ACTION_PAUSE and msg.data != ACTION_STOP:
             rospy.logwarn("Unhandled Mapping Control callback message!")
             rospy.logwarn("{}".format(msg.data))
@@ -483,29 +492,19 @@ class Controller():
                     self.all_objects_found()
 
                 else:  # If resuming, objects found but still more to go
-                    self.skip_remaining_room_waypoints()  # Go to the next room
+                    if ENABLE_SKIP_ROOMS:
+                        self.skip_remaining_room_waypoints()  # Go to the next room
                     self.go_to_next_waypoint()
 
-            # If no objects found and there are attempts remaining on the current waypoint
-            elif self.waypoints[self.waypoint_current]["attempt"] < MAX_ATTEMPTS_PER_WAYPOINT:
-                self.waypoints[self.waypoint_current]["attempt"] += 1
-                self.mapping_run()
-
-            else:  # If no attempts remaining on the current waypoint, goto the next waypoint
-                self.set_waypoint_skipped(
-                    self.waypoints[self.waypoint_current])
-                self.waypoint_current += 1
-                self.go_to_next_waypoint()
+            # If no objects found
+            else:
+                self.reattempt_waypoint_or_skip()
 
     def mapping_reached_waypoint(self):
         '''
         Triggered when mapping reports that it has reached its assigned waypoint.
         '''
         self.set_waypoint_visited(self.waypoints[self.waypoint_current])
-        if self.is_room_visited(self.room):
-            rospy.loginfo("Room {} completed".format(self.room))
-            self.room += 1
-
         self.go_to_next_waypoint()
 
     def mapping_override(self, behaviour):
@@ -524,6 +523,13 @@ class Controller():
                                   behaviour,
                                   STATE_ACTIVE_RUNNING)
             self.mapping_send_pause()
+    
+    def mapping_failed(self):
+        '''
+        Called when mapping has failed.
+        '''
+        rospy.logerr("Mapping failed to reach waypoint {}!".format(self.waypoint_current))
+        self.reattempt_waypoint_or_skip()
 
     def object_detection_detected(self, object_name, coordinate_x, coordinate_y, size_x, size_y):
         '''
@@ -682,6 +688,7 @@ class Controller():
         else:
             rospy.loginfo("Going to waypoint {}".format(next_id))
             self.waypoint_current = next_id
+            self.room = self.waypoints[next_id]["room"]
             # self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING,
             #                       self.behaviour_previous, STATE_INACTIVE)
             self.mapping_run()
@@ -699,21 +706,38 @@ class Controller():
         '''
         Marks a waypoint as needing re-visiting.
         '''
-        waypoint["visited"] = False
-        waypoint["re-visit"] = True
-        waypoint["attempt"] = 0
-        self.waypoints_skipped += 1
-        rospy.loginfo("Skipped waypoint {}".format(waypoint["id"]))
+        waypoint["re-visit_count"] += 1
+
+        if waypoint["re-visit_count"] >= MAX_REVISITS_PER_WAYPOINT:
+            self.set_waypoint_discarded(waypoint)
+            rospy.logwarn("Skipped waypoint {} has exceeded re-visit count. Waypoint will be discarded.".format(waypoint["id"]))
+        else:
+            waypoint["visited"] = False
+            waypoint["re-visit"] = True
+            waypoint["attempt"] = 0
+            self.waypoints_skipped += 1
+            rospy.logwarn("Skipped waypoint {}".format(waypoint["id"]))
 
     def set_waypoint_visited(self, waypoint):
         '''
-        Marks a waypoint as needing re-visiting.
+        Marks a waypoint as visited.
         '''
         waypoint["visited"] = True
         waypoint["re-visit"] = False
         waypoint["attempt"] = 0
         self.waypoints_visited += 1
         rospy.loginfo("Reached waypoint {}".format(waypoint["id"]))
+
+    def set_waypoint_discarded(self, waypoint):
+        '''
+        Marks a waypoint as visited.
+        '''
+        waypoint["visited"] = False
+        waypoint["re-visit"] = False
+        waypoint["attempt"] = 0
+        waypoint["discarded"] = True
+        self.waypoints_discarded += 1
+        rospy.loginfo("Waypoint {} discarded.".format(waypoint["id"]))
 
     def is_room_visited(self, room):
         '''
@@ -738,28 +762,44 @@ class Controller():
         first waypoint is selected. If looping is disabled, no waypoint (-1) is returned.
         '''
         for waypoint in self.waypoints:  # Return the next unvisited waypoint in the list
-            if not waypoint["visited"] and not waypoint["re-visit"] and waypoint["id"] > self.waypoint_current:
+            if not waypoint["discarded"] and not waypoint["visited"] and not waypoint["re-visit"] and waypoint["id"] > self.waypoint_current:
                 return waypoint["id"]
 
         # No unvisited waypoints left
         for waypoint in self.waypoints:  # Return the next re-visit waypoint in the list
-            if not waypoint["visited"] and waypoint["re-visit"] and waypoint["id"] > self.waypoint_current:
+            if not waypoint["discarded"] and not waypoint["visited"] and waypoint["re-visit"] and waypoint["id"] > self.waypoint_current:
                 return waypoint["id"]
 
         # No unvisited re-visits left after the current waypoint
         for waypoint in self.waypoints:  # Return the first available re-visit
-            if not waypoint["visited"] and waypoint["re-visit"]:
+            if not waypoint["discarded"] and not waypoint["visited"] and waypoint["re-visit"]:
                 return waypoint["id"]
 
         # If here, all waypoints have been visited and there are no re-visits left.
         if LOOPING:  # If looping, go back to the first
             for waypoint in self.waypoints:
                 waypoint["attempt"] = 0
+                waypoint["re-visit_count"] = 0
                 waypoint["visited"] = False
                 waypoint["re-visit"] = False
             return 0
         else:  # If not, admit defeat
             return -1
+
+    def reattempt_waypoint_or_skip(self):
+        self.waypoints[self.waypoint_current]["attempt"] += 1
+        if self.waypoints[self.waypoint_current]["attempt"] <= MAX_REATTEMPTS_PER_WAYPOINT:
+            # If the waypoint still has attempts left
+            rospy.logwarn("Waypoint {} attempt number {} failed. Will re-try.".format(self.waypoint_current, 
+                self.waypoints[self.waypoint_current]["attempt"]))
+            self.mapping_run()
+        else:  
+            # If no attempts remaining on the current waypoint, goto the next waypoint
+            rospy.logwarn("Waypoint {} attempt number {} failed.".format(self.waypoint_current, 
+                self.waypoints[self.waypoint_current]["attempt"]))
+            self.set_waypoint_skipped(
+                self.waypoints[self.waypoint_current])
+            self.go_to_next_waypoint()
 
     def all_objects_found(self):
         '''
@@ -772,7 +812,7 @@ class Controller():
         '''
         Called when there are still objects remaining but there are no more places to visit.
         '''
-        rospy.logerr("Failed to find all objects without repeating")
+        rospy.logfatal("Failed to find all objects without repeating")
         self.shutdown()
 
     def shutdown(self):
