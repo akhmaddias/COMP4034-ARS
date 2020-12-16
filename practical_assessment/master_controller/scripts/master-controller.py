@@ -26,7 +26,18 @@ from geometry_msgs.msg import Pose
 from std_msgs.msg import Int32, String
 
 #  Overall parameters
-WAYPOINTS = () #  Waypoints format (X, Y, Z, room_number)
+WAYPOINTS = (
+    (,,,0),
+    (,,,1),
+    (,,,2),
+    (,,,3),
+    (,,,4),
+    (,,,5),
+    (,,,6),
+    (,,,7),
+    (,,,8),
+    (,,,9)
+) #  Waypoints format (X, Y, Z, room_number)
 OBJECTS = (
     "fire hydrant",
     "green box",
