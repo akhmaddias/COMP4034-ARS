@@ -1,26 +1,19 @@
 #!/usr/bin/env python
 import rospy
-import tf
 
 from std_msgs.msg import Int32
-from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
+from geometry_msgs.msg import Twist, Pose
 from master_controller.msg import DetectedObject
 from sensor_msgs.msg import LaserScan
-from math import radians
 
 # control constants
 STOP = -1
 START = 1
-PAUSE = 2
 REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURN_ERR_UP_THRESHOLD = 10
-TURN_ERR_DOWN_THRESHOLD = -10
-TURN_GAIN = 0.5
-TURN_MAX_SPEED = 1
-TURN_MIN_SPEED = 0.01
+TURN_GAIN = 0.01
 
 # moving controller constants
 MOVING_ERROR_THRESHOLD = 0.5
@@ -29,13 +22,12 @@ MOVE_MAX_SPEED = 0.3
 MOVE_MIN_SPEED = 0.01
 
 # laser scan constants
-WINDOW = 30
+WINDOW = 20
 TARGET = 0
-OFFSET = 15
+OFFSET = 10
 
 
 class ObjectNavigation():
-
 
     def __init__(self):
         # init node
@@ -44,21 +36,15 @@ class ObjectNavigation():
         # variables
         self.is_running = False
         self.object_name = None
-        self.object_pose = None
         self.object_action = None
         self.object_detected = DetectedObject()
-        self.curr_position = None
-        self.curr_orientation = None
-        self.target_orientation = None
         self.dist_to_object = None
-        self.scan_index = None
         self.is_moving = False
         self.move_cmd = Twist()
         self.stop_cmd = Twist()
         self.stop_cmd.linear.x = 0
         self.stop_cmd.linear.y = 0
         self.stop_cmd.linear.z = 0
-
         self.stop_cmd.angular.x = 0
         self.stop_cmd.angular.y = 0
         self.stop_cmd.angular.z = 0
@@ -96,14 +82,14 @@ class ObjectNavigation():
         Saves object position and name
         '''
         self.object_name = data.object_name
-        self.object_pose = data
+        self.object_detected = data
 
     def object_control_cb(self, action):
         '''
         Saves the control state and starts navigation
         '''
         self.object_action = action.data
-    
+
     def navigation_control(self):
         if self.object_action == START:
             self.navigate_to_object()
@@ -127,15 +113,15 @@ class ObjectNavigation():
         if not self.object_name:
             rospy.logerr("Object name is not received. Waiting...")
             return
-        elif not self.object_pose:
+        elif not self.object_detected:
             rospy.logerr("Estimated object pose is not received. Waiting...")
             return
 
         if not self.is_moving:
             rospy.loginfo("Navigation to object {}. Estimated position at ({}, {})"
                           .format(self.object_name,
-                                  self.object_pose.x,
-                                  self.object_pose.y))
+                                  self.object_detected.x,
+                                  self.object_detected.y))
         if self.object_action == 1:
             self.calculate_movement()
 
@@ -155,19 +141,13 @@ class ObjectNavigation():
             movespeed = min(max(move_err * MOVE_GAIN,
                                 MOVE_MIN_SPEED),
                             MOVE_MAX_SPEED)
-
+        # screen width middle
+        width_middle = self.object_detected.size_x / 2
         # turn error
-        turn_err = abs(self.object_detected.size_x / 2 - self.object_detected.x)
+        turn_err = self.object_detected.x - width_middle
 
         # if error less than threshold then stop turning
-        if turn_err <= TURN_ERR_UP_THRESHOLD and turn_err >= TURN_ERR_DOWN_THRESHOLD:
-            turnspeed = 0
-        else:
-            # else clamp turnspeed between min and max values
-            turnspeed = min(max(turn_err * TURN_GAIN,
-                                TURN_MIN_SPEED),
-                            TURN_MAX_SPEED)
-            turnspeed = turnspeed if turn_err < 0 else -turnspeed
+        turnspeed = -float(turn_err) * TURN_GAIN
 
         # target reached
         if movespeed == 0:
