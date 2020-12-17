@@ -5,7 +5,8 @@ import tf
 from std_msgs.msg import Int32
 from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
 from master_controller.msg import DetectedObject
-from math import sqrt, atan, radians, pi as PI
+from sensor_msgs.msg import LaserScan
+from math import radians
 
 # control constants
 STOP = -1
@@ -21,10 +22,15 @@ TURN_MAX_SPEED = 1
 TURN_MIN_SPEED = 0.01
 
 # moving controller constants
-MOVING_ERROR_THRESHOLD = 0.1
+MOVING_ERROR_THRESHOLD = 0.5
 MOVE_GAIN = 0.5
 MOVE_MAX_SPEED = 0.3
 MOVE_MIN_SPEED = 0.01
+
+# laser scan constants
+WINDOW = 30
+TARGET = 0
+OFFSET = 15
 
 
 class ObjectNavigation():
@@ -41,8 +47,8 @@ class ObjectNavigation():
         self.curr_position = None
         self.curr_orientation = None
         self.target_orientation = None
-        self.target_x = 0
-        self.target_y = 0
+        self.dist_to_object = None
+        self.scan_index = None
         self.is_moving = False
         self.move_cmd = Twist()
 
@@ -56,6 +62,9 @@ class ObjectNavigation():
         self.amcl_sub = rospy.Subscriber("/amcl_pose",
                                          PoseWithCovarianceStamped,
                                          self.amcl_cb)
+        self.scan_sub = rospy.Subscriber("/scan",
+                                         LaserScan,
+                                         self.scan_cb)
 
         # init publishers
         self.object_control_pub = rospy.Publisher("/object_control",
@@ -63,6 +72,16 @@ class ObjectNavigation():
         self.object_position_pub = rospy.Publisher("/object_position",
                                                    Pose, queue_size=1)
         self.twist_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
+
+    def scan_cb(self, scandata):
+        '''
+        Saves laser scan data
+        '''
+        self.dist_to_object = scandata.ranges[TARGET - OFFSET]
+        self.scan_index = TARGET
+        for i in range(TARGET - OFFSET + 1, TARGET + OFFSET):
+            self.dist_to_object = min(scandata.ranges[i], self.dist_to_object)
+            self.scan_index = i if self.dist_to_object > scandata.ranges[i] else self.scan_index
 
     def object_detected_cb(self, data):
         '''
@@ -84,6 +103,9 @@ class ObjectNavigation():
         self.curr_orientation = yaw
 
     def object_control_cb(self, action):
+        '''
+        Saves the control state and starts navigation
+        '''
         self.object_action = action.data
         if self.object_action == START:
             self.navigate_to_object()
@@ -123,32 +145,11 @@ class ObjectNavigation():
         Calculates and moves to the point 0.5m away from object
         on the line between object and robot
         '''
-        if not self.curr_position:
-            rospy.loginfo("Current position from /amcl is not received")
-            return
-
-        # calculation of target point should be done only once
-        if not self.is_moving:
-            # initial distance between robot and object
-            initial_dist = sqrt((self.object_pose.x - self.curr_position.x) ** 2 +
-                                (self.object_pose.y - self.curr_position.y) ** 2)
-
-            # ratio of required distance to object to initial distance
-            ratio = DIST_TO_OBJECT / initial_dist
-
-            # calculate x and y coordinates of the target point 0.5m away from object
-            self.target_x = (1 - ratio) * self.object_pose.x + ratio * self.curr_position.x
-            self.target_y = (1 - ratio) * self.object_pose.y + ratio * self.curr_position.y
-
-        # current distance between robot and target point
-        curr_dist = sqrt((self.target_x - self.curr_position.x) ** 2 +
-                         (self.target_y - self.curr_position.y) ** 2)
-
         # move error is set to the distance between object and target point
-        move_err = curr_dist
+        move_err = self.dist_to_object
 
         # if error less than threshold then stop moving
-        if curr_dist <= MOVING_ERROR_THRESHOLD:
+        if move_err <= MOVING_ERROR_THRESHOLD:
             movespeed = 0
         else:
             # else clamp movespeed between min and max values
@@ -156,16 +157,7 @@ class ObjectNavigation():
                                 MOVE_MIN_SPEED),
                             MOVE_MAX_SPEED)
 
-        # calculate slope
-        m = (self.object_pose.y - self.target_y) / (self.object_pose.x - self.target_x)
-
-        # calculate target orientation of robot
-        self.target_orientation = atan(m)
-
-        # calculate turning error
-        lh_err = (self.curr_orientation - self.target_orientation) % (2 * PI)
-        rh_err = (self.target_orientation - self.curr_orientation) % (2 * PI)
-        turn_err = min(lh_err, rh_err)
+        turn_err = abs(self.scan_index)
 
         # if error less than threshold then stop turning
         if turn_err <= TURNING_ERROR_THRESHOLD:
@@ -175,7 +167,7 @@ class ObjectNavigation():
             turnspeed = min(max(turn_err * TURN_GAIN,
                                 TURN_MIN_SPEED),
                             TURN_MAX_SPEED)
-            turnspeed = turnspeed if rh_err < lh_err else -turnspeed
+            turnspeed = turnspeed if self.scan_index < 0 else -turnspeed
 
         # target reached
         if turnspeed == 0 and movespeed == 0:
@@ -187,8 +179,7 @@ class ObjectNavigation():
         self.move_cmd.angular.z = turnspeed
 
         self.is_moving = True
-        rospy.loginfo("Moving to point ({}, {})..."
-                      .format(self.target_x, self.target_y))
+        rospy.loginfo("Moving...")
         rospy.loginfo("Movespeed: {}".format(movespeed))
         rospy.loginfo("Turnspeed: {}".format(turnspeed))
 
