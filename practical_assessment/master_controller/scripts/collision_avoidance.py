@@ -22,7 +22,7 @@ class CollisionAvoidance():
     def __init__(self):
         rospy.init_node('collision_avoidance', anonymous=False)
 
-        self.message_pub = rospy.Publisher("topic", Int32, queue_size=1)
+        self.message_pub = rospy.Publisher("collision_control", Int32, queue_size=1)
         self.vel_publisher = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
 
         self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.scan_cb)
