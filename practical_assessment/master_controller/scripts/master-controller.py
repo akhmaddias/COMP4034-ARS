@@ -312,6 +312,10 @@ class Controller():
         self.object_navigation_control_publisher.publish(ACTION_PAUSE)
         rospy.loginfo("Sent PAUSE to Object Navigation")
 
+    def object_navigation_send_stop(self):
+        self.object_navigation_control_publisher.publish(ACTION_STOP)
+        rospy.loginfo("Sent STOP to Object Navigation")
+
     def object_navigation_send_detected(self):
         msg = DetectedObject()
         msg.x = self.objects[self.object_current]["x"]
@@ -830,6 +834,7 @@ class Controller():
         self.shutting_down = True  # Terminates continuous loops
         rospy.logwarn("Stopping - shutdown")
         self.mapping_send_stop()
+        self.object_navigation_send_stop()
         rospy.signal_shutdown("Stopping - shutdown")
 
 
