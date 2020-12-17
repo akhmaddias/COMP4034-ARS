@@ -568,7 +568,7 @@ class Controller():
                                       BEHAVIOUR_OBJECT_NAVIGATION,
                                       STATE_ACTIVE_RUNNING)
                 self.object_navigation_run()
-            elif state.state_object_navigation == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]:
+            elif self.state_object_navigation == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]:
                 self.object_navigation_send_object_coordinates()
 
         else:
