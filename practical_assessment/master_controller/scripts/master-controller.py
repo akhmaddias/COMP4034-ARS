@@ -565,14 +565,14 @@ class Controller():
             #rospy.loginfo("Visiting {}".format(visiting))
             if self.state_mapping == STATE_ACTIVE_RUNNING and not visited and not visiting:
                 rospy.loginfo("Found {}".format(self.objects[self.object_current]["name"]))
-                #self.objects[self.object_current]["visiting"] = True
+                self.objects[self.object_current]["visiting"] = True
                 self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
                 self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
-                                      STATE_ACTIVE_STOPPED,
+                                      STATE_INACTIVE,
                                       BEHAVIOUR_OBJECT_NAVIGATION,
                                       STATE_ACTIVE_RUNNING)
                 self.object_navigation_run()
-            elif self.state_object_navigation == STATE_ACTIVE_RUNNING and not visited and visiting:
+            elif self.state_object_navigation == STATE_ACTIVE_RUNNING  and visiting and not visited:
                 self.object_navigation_send_detected()
 
         else:
