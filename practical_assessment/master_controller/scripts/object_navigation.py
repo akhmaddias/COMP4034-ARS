@@ -131,7 +131,7 @@ class ObjectNavigation():
         elif self.object_action == REACHED:
             rospy.loginfo("Object reached!")
         else:
-            rospy.loginfo("Invalid command. Waiting...")
+            rospy.loginfo("Waiting for the command")
 
     def navigate_to_object(self):
         '''
