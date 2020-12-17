@@ -31,29 +31,34 @@ class DetectableObject(object):
                                 min(self.s + self.s_range / 2, 255),
                                 min(self.v + self.v_range / 2, 255)])
 
+    def hsv_threshold(self, img):
+        '''
+        This method will threshold the given image with the hsv_hi and hsv_lo
+        values. It handles 'wrapping' around the hue spectrum (180 next to 0).
+
+        Returns a mask.
+        '''
+        if self.hsv_lo[0] > self.hsv_hi[0]:  # We need to wrap around the hue spectrum
+            mask1 = cv.inRange(img.copy(), self.hsv_lo, np.array([180,
+                                                                  self.hsv_hi[1],
+                                                                  self.hsv_hi[2]]))
+            mask2 = cv.inRange(img, np.array([0,
+                                              self.hsv_lo[1],
+                                              self.hsv_lo[2]]), self.hsv_hi)
+            return mask1 + mask2
+        else:
+            return cv.inRange(img, self.hsv_lo, self.hsv_hi)
+
     def find_in_image(self, img, config):
         # Smooth edges by blurring a bit
         blurred = cv.GaussianBlur(img, (config['gauss_kernel_size'],
                                         config['gauss_kernel_size']), 0)
 
-        mask = None
-        if self.hsv_lo[0] > self.hsv_hi[0]:  # We need to wrap around the hue spectrum
-            mask1 = cv.inRange(blurred.copy(), self.hsv_lo, np.array([128,
-                                                                      self.hsv_hi[1],
-                                                                      self.hsv_hi[2]]))
-            mask2 = cv.inRange(blurred, np.array([0,
-                                                  self.hsv_lo[1],
-                                                  self.hsv_lo[2]]), self.hsv_hi)
-            mask = mask1 + mask2
-        else:
-            mask = cv.inRange(blurred, self.hsv_lo, self.hsv_hi)
-
+        mask = self.hsv_threshold(blurred)
         closed = cv.morphologyEx(mask, cv.MORPH_OPEN, (11, 11))
-        # closed = cv.morphologyEx(mask, cv.MORPH_CLOSE, (5, 5))
-
         contours, _ = cv.findContours(closed,
-                                         cv.RETR_TREE,
-                                         cv.CHAIN_APPROX_SIMPLE)
+                                      cv.RETR_TREE,
+                                      cv.CHAIN_APPROX_SIMPLE)
 
         if DEBUG:
             cv.imshow('Mask: {0}'.format(self.name), closed)
@@ -62,21 +67,20 @@ class DetectableObject(object):
         best_contour = None
         best_area = 0
 
-        # print('{0} {1}'.format(self.name, len(contours)))
         for contour in contours:
             moments = cv.moments(contour)
             area = moments['m00']
             if area >= config['contour_size_threshold']:
                 matches += 1
                 if area > best_area:
-                    cx = int(moments['m10']/moments['m00'])
-                    cy = int(moments['m01']/moments['m00'])
+                    cx = int(moments['m10'] / moments['m00'])
+                    cy = int(moments['m01'] / moments['m00'])
                     best_contour = (cx, cy)
                     best_area = area
 
         if matches > 1:
-            warnmsg = 'Found {0} (>1) contour was found for {1}, consider \
-                       tweaking the config!'.format(matches, self.name)
+            warnmsg = ('Found {0} (>1) contour was found for {1}, consider' +
+                       'tweaking the config!').format(matches, self.name)
             if DEBUG:
                 rospy.logwarn(warnmsg)
             else:
@@ -99,8 +103,8 @@ class Classifier():
         '''
         if not os.path.isfile(path):
             rospy.logfatal('CANNOT FIND vision_config.json - THIS SHOULD BE ' +
-                'LOCATED IN YOUR ROSHOME (~/.ros/vision_config.json) ' + 
-                'Tried path {0}'.format(path))
+                           'LOCATED IN YOUR ROSHOME (~/.ros/vision_config.json) ' +
+                           'Tried path {0}'.format(path))
         with open(path, 'r') as jsonfile:
             self.config = json.load(jsonfile)
             try:
