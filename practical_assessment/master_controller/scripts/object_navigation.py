@@ -14,11 +14,12 @@ DIST_TO_OBJECT = 0.5
 
 # turning controller constants
 TURN_GAIN = 0.005
+TURN_ERR_THRESH = 50
 
 # moving controller constants
 MOVING_ERROR_THRESHOLD = 0.5
 MOVE_GAIN = 0.5
-MOVE_MAX_SPEED = 0.3
+MOVE_MAX_SPEED = 0.2
 MOVE_MIN_SPEED = 0.01
 
 # laser scan constants
@@ -75,14 +76,13 @@ class ObjectNavigation():
         for i in range(TARGET - OFFSET + 1, TARGET + OFFSET):
             self.dist_to_object = min(scandata.ranges[i], self.dist_to_object)
 
-        self.navigation_control()
-
     def object_detected_cb(self, data):
         '''
         Saves object position and name
         '''
         self.object_name = data.object_name
         self.object_detected = data
+        self.navigation_control()
 
     def object_control_cb(self, action):
         '''
@@ -150,7 +150,7 @@ class ObjectNavigation():
         turnspeed = -float(turn_err) * TURN_GAIN
 
         # target reached
-        if movespeed == 0:
+        if turn_err < TURN_ERR_THRESH and movespeed == 0:
             self.goal_reached()
             return
 
