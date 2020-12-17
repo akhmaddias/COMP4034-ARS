@@ -149,7 +149,8 @@ class ObjectNavigation():
                           .format(self.object_name,
                                   self.object_pose.x,
                                   self.object_pose.y))
-        self.calculate_movement()
+        if self.object_action == 1:
+            self.calculate_movement()
 
     def calculate_movement(self):
         '''
