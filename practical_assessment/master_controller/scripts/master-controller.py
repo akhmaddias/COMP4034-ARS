@@ -27,7 +27,7 @@ from geometry_msgs.msg import Pose
 # Route designed for maximum visual coverage with non-overlapping viewing areas
 WAYPOINTS = [
     #(-1.3, 4.05, 0, 0),  # Reverse robot waypoint
-    (-1.2, -1.0, 0, 0),
+    (-1.2, -0.90, 0, 0),
     (0.0, 0.5, 0, 1),
     (3.3, 0.8, 0, 2),
     (5.5, 2.9, 0, 2),
@@ -312,6 +312,10 @@ class Controller():
         self.object_navigation_control_publisher.publish(ACTION_PAUSE)
         rospy.loginfo("Sent PAUSE to Object Navigation")
 
+    def object_navigation_send_stop(self):
+        self.object_navigation_control_publisher.publish(ACTION_STOP)
+        rospy.loginfo("Sent STOP to Object Navigation")
+
     def object_navigation_send_detected(self):
         msg = DetectedObject()
         msg.x = self.objects[self.object_current]["x"]
@@ -320,7 +324,7 @@ class Controller():
         msg.size_y = self.objects[self.object_current]["size_y"]
         msg.object_name = self.objects[self.object_current]["name"]
         self.object_navigation_detected_publisher.publish(msg)
-        rospy.loginfo("Sent object details to Object Navigation")
+        #rospy.loginfo("Sent object details to Object Navigation")
 
     def object_navigation_send_object_coordinates(self):
         pose = Pose()
@@ -334,7 +338,7 @@ class Controller():
         self.objects[self.object_current]["visiting"] = True
         self.object_navigation_type_publisher.publish(
             self.objects[self.object_current]["name"])
-        rospy.loginfo("Sent object type to Object Navigation")
+        # rospy.loginfo("Sent object type to Object Navigation")
 
     def change_behaviour(
             self, current_behaviour,
@@ -555,17 +559,21 @@ class Controller():
             self.objects[self.object_current]["y"] = coordinate_y
             self.objects[self.object_current]["size_x"] = size_x
             self.objects[self.object_current]["size_y"] = size_y
-
-            if self.state_mapping == STATE_ACTIVE_RUNNING and not (
-                self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]
-            ):
-                rospy.loginfo("New known object detected")
+            visited = self.objects[self.object_current]["visited"]
+            visiting = self.objects[self.object_current]["visiting"]
+            #rospy.loginfo("Visited {}".format(visited))
+            #rospy.loginfo("Visiting {}".format(visiting))
+            if self.state_mapping == STATE_ACTIVE_RUNNING and not visited and not visiting:
+                rospy.loginfo("Found {}".format(self.objects[self.object_current]["name"]))
+                self.objects[self.object_current]["visiting"] = True
                 self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
                 self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
-                                      STATE_ACTIVE_STOPPED,
+                                      STATE_INACTIVE,
                                       BEHAVIOUR_OBJECT_NAVIGATION,
                                       STATE_ACTIVE_RUNNING)
                 self.object_navigation_run()
+            elif self.state_object_navigation == STATE_ACTIVE_RUNNING  and visiting and not visited:
+                self.object_navigation_send_detected()
 
         else:
             rospy.logerr("Unrecognised object presented!")
@@ -657,14 +665,19 @@ class Controller():
         Called when the object has been reached.
         This returns to mapping once complete.
         '''
-        self.objects[self.object_current]["visited"] = True
-        self.objects[self.object_current]["visiting"] = False
-        self.objects[self.object_current]["x"] = x_coordinate
-        self.objects[self.object_current]["y"] = y_coordinate
-        self.objects[self.object_current]["z"] = 0.0
-        self.objects_found += 1
+        rospy.loginfo("Reached message received")
+        if not self.objects[self.object_current]["visited"]: 
+            rospy.loginfo("Object reached! - {}".format(self.objects[self.object_current]["name"]))
+            self.objects[self.object_current]["visited"] = True
+            self.objects[self.object_current]["visiting"] = False
+            self.objects[self.object_current]["x"] = x_coordinate
+            self.objects[self.object_current]["y"] = y_coordinate
+            self.objects[self.object_current]["z"] = 0.0
+            self.objects_found += 1
+            rospy.loginfo("Found {} objects".format(self.objects_found))
+            self.object_navigation_send_stop()
 
-        self.return_to_specified_behaviour(BEHAVIOUR_MAPPING)
+            self.return_to_specified_behaviour(BEHAVIOUR_MAPPING)
 
     def object_navigation_override(self):
         '''
@@ -830,6 +843,7 @@ class Controller():
         self.shutting_down = True  # Terminates continuous loops
         rospy.logwarn("Stopping - shutdown")
         self.mapping_send_stop()
+        self.object_navigation_send_stop()
         rospy.signal_shutdown("Stopping - shutdown")
 
 
