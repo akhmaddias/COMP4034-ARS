@@ -16,7 +16,8 @@ REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURNING_ERROR_THRESHOLD = 5
+TURNING_ERROR_UP_THRESHOLD = 2.2
+TURNING_ERROR_DOWN_THRESHOLD = 1.8
 TURN_GAIN = 0.5
 TURN_MAX_SPEED = 1
 TURN_MIN_SPEED = 0.01
@@ -34,6 +35,11 @@ OFFSET = 15
 
 
 class ObjectNavigation():
+    
+
+    STOP_CMD = Twist()
+    STOP_CMD.linear.x = 0
+    STOP_CMD.angular.z = 0
 
     def __init__(self):
         # init node
@@ -44,6 +50,7 @@ class ObjectNavigation():
         self.object_name = None
         self.object_pose = None
         self.object_action = None
+        self.object_detected = DetectedObject()
         self.curr_position = None
         self.curr_orientation = None
         self.target_orientation = None
@@ -115,7 +122,7 @@ class ObjectNavigation():
             self.navigate_to_object()
         elif self.object_action == STOP:
             rospy.loginfo("Stopping object navigation...")
-            self.move_cmd(Twist())
+            self.move_cmd(STOP_CMD)
             self.is_moving = False
         elif self.object_action == REACHED:
             rospy.loginfo("Object reached!")
@@ -161,17 +168,18 @@ class ObjectNavigation():
                                 MOVE_MIN_SPEED),
                             MOVE_MAX_SPEED)
 
-        turn_err = abs(self.scan_index)
+        # turn error
+        turn_err = self.object_detected.size_x / self.object_detected.x
 
         # if error less than threshold then stop turning
-        if turn_err <= TURNING_ERROR_THRESHOLD:
+        if turn_err <= TURN_ERR_UP_THRESHOLD and turn_err >= TURN_ERR_DOWN_THRESHOLD:
             turnspeed = 0
         else:
             # else clamp turnspeed between min and max values
             turnspeed = min(max(turn_err * TURN_GAIN,
                                 TURN_MIN_SPEED),
                             TURN_MAX_SPEED)
-            turnspeed = turnspeed if self.scan_index < 0 else -turnspeed
+            turnspeed = turnspeed if turn_err < 2 else -turnspeed
 
         # target reached
         if turnspeed == 0 and movespeed == 0:
@@ -196,7 +204,7 @@ class ObjectNavigation():
         '''
         self.is_moving = False
         rospy.loginfo("Reached object {}".format(self.object_name))
-        self.twist_pub.publish(Twist())
+        self.twist_pub.publish(STOP_CMD)
         self.object_control_pub.publish(REACHED)
 
 
