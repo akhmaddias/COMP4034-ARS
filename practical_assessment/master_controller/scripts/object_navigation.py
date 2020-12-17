@@ -13,7 +13,7 @@ REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURN_GAIN = 0.01
+TURN_GAIN = 0.005
 
 # moving controller constants
 MOVING_ERROR_THRESHOLD = 0.5
