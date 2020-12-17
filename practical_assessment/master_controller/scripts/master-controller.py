@@ -27,7 +27,7 @@ from geometry_msgs.msg import Pose
 # Route designed for maximum visual coverage with non-overlapping viewing areas
 WAYPOINTS = [
     #(-1.3, 4.05, 0, 0),  # Reverse robot waypoint
-    (-1.2, -0.85, 0, 0),
+    (-1.2, -0.90, 0, 0),
     (0.0, 0.5, 0, 1),
     (3.3, 0.8, 0, 2),
     (5.5, 2.9, 0, 2),
