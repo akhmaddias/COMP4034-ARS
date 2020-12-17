@@ -170,7 +170,7 @@ class ObjectNavigation():
             turnspeed = turnspeed if turn_err < 0 else -turnspeed
 
         # target reached
-        if turnspeed == 0 and movespeed == 0:
+        if movespeed == 0:
             self.goal_reached()
             return
 
