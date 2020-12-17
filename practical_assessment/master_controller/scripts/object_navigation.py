@@ -1,25 +1,19 @@
 #!/usr/bin/env python
 import rospy
-import tf
 
 from std_msgs.msg import Int32
-from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
+from geometry_msgs.msg import Twist, Pose
 from master_controller.msg import DetectedObject
 from sensor_msgs.msg import LaserScan
-from math import radians
 
 # control constants
 STOP = -1
 START = 1
-PAUSE = 2
 REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURNING_ERROR_THRESHOLD = 5
-TURN_GAIN = 0.5
-TURN_MAX_SPEED = 1
-TURN_MIN_SPEED = 0.01
+TURN_GAIN = 0.005
 
 # moving controller constants
 MOVING_ERROR_THRESHOLD = 0.5
@@ -28,9 +22,9 @@ MOVE_MAX_SPEED = 0.3
 MOVE_MIN_SPEED = 0.01
 
 # laser scan constants
-WINDOW = 30
+WINDOW = 20
 TARGET = 0
-OFFSET = 15
+OFFSET = 10
 
 
 class ObjectNavigation():
@@ -42,15 +36,18 @@ class ObjectNavigation():
         # variables
         self.is_running = False
         self.object_name = None
-        self.object_pose = None
         self.object_action = None
-        self.curr_position = None
-        self.curr_orientation = None
-        self.target_orientation = None
+        self.object_detected = DetectedObject()
         self.dist_to_object = None
-        self.scan_index = None
         self.is_moving = False
         self.move_cmd = Twist()
+        self.stop_cmd = Twist()
+        self.stop_cmd.linear.x = 0
+        self.stop_cmd.linear.y = 0
+        self.stop_cmd.linear.z = 0
+        self.stop_cmd.angular.x = 0
+        self.stop_cmd.angular.y = 0
+        self.stop_cmd.angular.z = 0
 
         # init subscribers
         self.object_control_sub = rospy.Subscriber("object_control",
@@ -59,9 +56,6 @@ class ObjectNavigation():
         self.object_detected_sub = rospy.Subscriber("object_navigation_detected",
                                                     DetectedObject,
                                                     self.object_detected_cb)
-        self.amcl_sub = rospy.Subscriber("amcl_pose",
-                                         PoseWithCovarianceStamped,
-                                         self.amcl_cb)
         self.scan_sub = rospy.Subscriber("scan",
                                          LaserScan,
                                          self.scan_cb)
@@ -78,10 +72,8 @@ class ObjectNavigation():
         Saves laser scan data
         '''
         self.dist_to_object = scandata.ranges[TARGET - OFFSET]
-        self.scan_index = TARGET
         for i in range(TARGET - OFFSET + 1, TARGET + OFFSET):
             self.dist_to_object = min(scandata.ranges[i], self.dist_to_object)
-            self.scan_index = i if self.dist_to_object > scandata.ranges[i] else self.scan_index
 
         self.navigation_control()
 
@@ -90,37 +82,25 @@ class ObjectNavigation():
         Saves object position and name
         '''
         self.object_name = data.object_name
-        self.object_pose = data
-
-    def amcl_cb(self, amcl):
-        '''
-        Saves current position and orientation of robot
-        '''
-        self.curr_position = amcl.pose.pose.position
-        quart = [amcl.pose.pose.orientation.x,
-                 amcl.pose.pose.orientation.y,
-                 amcl.pose.pose.orientation.z,
-                 amcl.pose.pose.orientation.w]
-        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(quart)
-        self.curr_orientation = yaw
+        self.object_detected = data
 
     def object_control_cb(self, action):
         '''
         Saves the control state and starts navigation
         '''
         self.object_action = action.data
-    
+
     def navigation_control(self):
         if self.object_action == START:
             self.navigate_to_object()
         elif self.object_action == STOP:
             rospy.loginfo("Stopping object navigation...")
-            self.move_cmd(Twist())
+            self.twist_pub.publish(self.stop_cmd)
             self.is_moving = False
         elif self.object_action == REACHED:
             rospy.loginfo("Object reached!")
         else:
-            rospy.loginfo("Invalid command. Waiting...")
+            rospy.loginfo("Waiting for the command")
 
     def navigate_to_object(self):
         '''
@@ -133,16 +113,17 @@ class ObjectNavigation():
         if not self.object_name:
             rospy.logerr("Object name is not received. Waiting...")
             return
-        elif not self.object_pose:
+        elif not self.object_detected:
             rospy.logerr("Estimated object pose is not received. Waiting...")
             return
 
         if not self.is_moving:
             rospy.loginfo("Navigation to object {}. Estimated position at ({}, {})"
                           .format(self.object_name,
-                                  self.object_pose.x,
-                                  self.object_pose.y))
-        self.calculate_movement()
+                                  self.object_detected.x,
+                                  self.object_detected.y))
+        if self.object_action == 1:
+            self.calculate_movement()
 
     def calculate_movement(self):
         '''
@@ -160,21 +141,16 @@ class ObjectNavigation():
             movespeed = min(max(move_err * MOVE_GAIN,
                                 MOVE_MIN_SPEED),
                             MOVE_MAX_SPEED)
-
-        turn_err = abs(self.scan_index)
+        # screen width middle
+        width_middle = self.object_detected.size_x / 2
+        # turn error
+        turn_err = self.object_detected.x - width_middle
 
         # if error less than threshold then stop turning
-        if turn_err <= TURNING_ERROR_THRESHOLD:
-            turnspeed = 0
-        else:
-            # else clamp turnspeed between min and max values
-            turnspeed = min(max(turn_err * TURN_GAIN,
-                                TURN_MIN_SPEED),
-                            TURN_MAX_SPEED)
-            turnspeed = turnspeed if self.scan_index < 0 else -turnspeed
+        turnspeed = -float(turn_err) * TURN_GAIN
 
         # target reached
-        if turnspeed == 0 and movespeed == 0:
+        if movespeed == 0:
             self.goal_reached()
             return
 
@@ -196,7 +172,7 @@ class ObjectNavigation():
         '''
         self.is_moving = False
         rospy.loginfo("Reached object {}".format(self.object_name))
-        self.twist_pub.publish(Twist())
+        self.twist_pub.publish(self.stop_cmd)
         self.object_control_pub.publish(REACHED)
 
 
