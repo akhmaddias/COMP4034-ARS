@@ -53,25 +53,25 @@ class ObjectNavigation():
         self.move_cmd = Twist()
 
         # init subscribers
-        self.object_control_sub = rospy.Subscriber("/object_control",
+        self.object_control_sub = rospy.Subscriber("object_control",
                                                    Int32,
                                                    self.object_control_cb)
-        self.object_detected_sub = rospy.Subscriber("/object_navigation_detected",
+        self.object_detected_sub = rospy.Subscriber("object_navigation_detected",
                                                     DetectedObject,
                                                     self.object_detected_cb)
-        self.amcl_sub = rospy.Subscriber("/amcl_pose",
+        self.amcl_sub = rospy.Subscriber("amcl_pose",
                                          PoseWithCovarianceStamped,
                                          self.amcl_cb)
-        self.scan_sub = rospy.Subscriber("/scan",
+        self.scan_sub = rospy.Subscriber("scan",
                                          LaserScan,
                                          self.scan_cb)
 
         # init publishers
-        self.object_control_pub = rospy.Publisher("/object_control",
+        self.object_control_pub = rospy.Publisher("object_control",
                                                   Int32, queue_size=1)
-        self.object_position_pub = rospy.Publisher("/object_position",
+        self.object_position_pub = rospy.Publisher("object_position",
                                                    Pose, queue_size=1)
-        self.twist_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
+        self.twist_pub = rospy.Publisher("cmd_vel", Twist, queue_size=3)
 
     def scan_cb(self, scandata):
         '''
