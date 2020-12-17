@@ -375,7 +375,7 @@ class Controller():
             self.state_recovery = new_state
         elif behaviour == BEHAVIOUR_COLLISION_AVOIDANCE:
             past_state = self.state_recovery
-            self.state_recovery = new_state
+            self.state_collision_avoidance = new_state
 
         rospy.loginfo("{} changed state from {} to {}".format(
             self.get_behaviour_name(behaviour),
@@ -448,11 +448,17 @@ class Controller():
 
         self.behaviour_previous = current_behaviour
         self.behaviour_current = past_behaviour
+        
+        if past_behaviour == BEHAVIOUR_MAPPING:
+            past_behaviour_past_state = self.state_mapping
+        elif past_behaviour == BEHAVIOUR_OBJECT_NAVIGATION:
+            past_behaviour_past_state = self.state_object_navigation
 
         self.change_behaviour_state(current_behaviour, STATE_INACTIVE)
+        self.change_behaviour_state(past_behaviour, STATE_ACTIVE_RUNNING)
 
         if past_behaviour == BEHAVIOUR_MAPPING:
-            self.mapping_resume()
+            self.mapping_resume(past_behaviour_past_state)
 
         elif past_behaviour == BEHAVIOUR_OBJECT_NAVIGATION:
             self.object_navigation_resume()
@@ -464,7 +470,7 @@ class Controller():
         self.mapping_send_coordinates(self.waypoints[self.waypoint_current])
         self.mapping_send_start()
 
-    def mapping_resume(self):
+    def mapping_resume(self, previous_state):
         '''
         Resumes the mapping function from paused or stopped.
         If mapping was paused, just resume the previous operation. If mapping was stopped
@@ -476,11 +482,7 @@ class Controller():
         to avoid waypoints that cause it difficulty. After a waypoint has exceeded the attempt
         threshold, the waypoint is skipped and the next waypoint in the list is chosen.
         '''
-        previous_state = self.state_mapping
-
         if previous_state == STATE_ACTIVE_PAUSED:
-            self.change_behaviour(BEHAVIOUR_MAPPING, STATE_ACTIVE_RUNNING,
-                                  self.behaviour_previous, STATE_INACTIVE)
             self.mapping_send_start()
 
         elif previous_state == STATE_ACTIVE_STOPPED:
@@ -519,7 +521,7 @@ class Controller():
             self.mapping_send_stop()
         else:
             self.change_behaviour(BEHAVIOUR_MAPPING,
-                                  STATE_ACTIVE_STOPPED,
+                                  STATE_ACTIVE_PAUSED,
                                   behaviour,
                                   STATE_ACTIVE_RUNNING)
             self.mapping_send_pause()
@@ -527,7 +529,7 @@ class Controller():
     def mapping_failed(self):
         '''
         Called when mapping has failed.
-        '''
+        '''    
         rospy.logerr("Mapping failed to reach waypoint {}!".format(self.waypoint_current))
         self.reattempt_waypoint_or_skip()
 
@@ -588,12 +590,13 @@ class Controller():
         Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
         will override a controlling behaviour.
         '''
-
         self.out_of_controlling_state_lock.acquire()
         rospy.logdebug("Out of controlling state lock acquired")
-
-        self.return_to_previous_behaviour()
-
+        rospy.loginfo("Current collision state {}".format(self.get_state_name(self.state_collision_avoidance)))
+        if self.state_collision_avoidance == STATE_ACTIVE_RUNNING:
+            self.return_to_previous_behaviour()
+        else:
+            rospy.logerr("Collision avoidance attempted to change into existing state!")
         self.out_of_controlling_state_lock.release()
         rospy.logdebug("Out of controlling state lock released")
 

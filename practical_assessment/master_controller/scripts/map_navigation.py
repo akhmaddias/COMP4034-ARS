@@ -39,14 +39,17 @@ class MapNavigator():
     def control_cb(self, command):
         rospy.loginfo("Received control message")
         if command.data == ACTION_PAUSE:
+            rospy.loginfo("Pausing navigation to waypoint")
             self.paused = True
             self.stopped = False
             self.action_client.cancel_all_goals()
         elif command.data == ACTION_START:
+            rospy.loginfo("Starting navigation to waypoint")
             self.paused = False
             self.stopped = False
             self.goto_target()
         else:  # Stop
+            rospy.loginfo("Stopping navigation to waypoint")
             self.stopped = True
             self.action_client.cancel_all_goals()
 
@@ -75,7 +78,7 @@ class MapNavigator():
     def check_for_success(self):
         rospy.loginfo('Mapping active')
         while not rospy.is_shutdown():
-            if self.stopped:
+            if self.stopped or self.paused:
                 continue
             self.action_client.wait_for_result(rospy.Duration(5))
             if self.action_client.get_state() == GoalStatus.SUCCEEDED:
@@ -83,9 +86,11 @@ class MapNavigator():
                 self.success_pub.publish(ACTION_SUCCESS)
                 self.stopped = True
             elif self.action_client.get_state() != GoalStatus.ACTIVE:
-                rospy.logerr("Failed to reach target at {}".format(self.target))
-                self.success_pub.publish(ACTION_FAILED)
-                self.stopped = True
+                if not self.paused:
+                    rospy.logerr("Failed to reach target at {}".format(self.target))
+                    self.success_pub.publish(ACTION_FAILED)
+                    self.stopped = True
+                
 
 def main():
     '''
