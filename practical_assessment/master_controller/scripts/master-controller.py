@@ -389,6 +389,8 @@ class Controller():
         behaviour_string = ""
         if behaviour == BEHAVIOUR_MAPPING:
             behaviour_string = "Mapping"
+        elif behaviour == BEHAVIOUR_OBJECT_DETECTION:
+            behaviour_string = "Object detection"
         elif behaviour == BEHAVIOUR_OBJECT_NAVIGATION:
             behaviour_string = "Object navigation"
         elif behaviour == BEHAVIOUR_RECOVERY:
@@ -529,9 +531,10 @@ class Controller():
     def mapping_failed(self):
         '''
         Called when mapping has failed.
-        '''    
-        rospy.logerr("Mapping failed to reach waypoint {}!".format(self.waypoint_current))
-        self.reattempt_waypoint_or_skip()
+        '''
+        if self.state_mapping == STATE_ACTIVE_RUNNING:    
+            rospy.logerr("Mapping failed to reach waypoint {}!".format(self.waypoint_current))
+            self.reattempt_waypoint_or_skip()
 
     def object_detection_detected(self, object_name, coordinate_x, coordinate_y, size_x, size_y):
         '''
@@ -545,6 +548,7 @@ class Controller():
         rospy.logdebug("Out of controlling state lock acquired")
 
         object_id = self.get_object_id(object_name)
+
         if object_id != -1:
             self.object_current = object_id
             self.objects[self.object_current]["x"] = coordinate_x
@@ -553,8 +557,9 @@ class Controller():
             self.objects[self.object_current]["size_y"] = size_y
 
             if self.state_mapping == STATE_ACTIVE_RUNNING and not (
-                self.objects[self.object_current]["visited"] or self.objects[self.object_current]["visiting"]
+                self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]
             ):
+                rospy.loginfo("New known object detected")
                 self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
                 self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
                                       STATE_ACTIVE_STOPPED,
