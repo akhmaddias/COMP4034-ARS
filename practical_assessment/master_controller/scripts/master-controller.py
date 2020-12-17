@@ -118,6 +118,7 @@ class Controller():
         self.object_current = -1
         self.objects_found = 0
         self.objects_total = len(OBJECTS)
+        rospy.loginfo("Task has {} objects to find".format(self.objects_total))
         self.objects_mapping_aware = 0
 
         self.init_waypoints()
@@ -495,8 +496,8 @@ class Controller():
             if self.objects_found > self.objects_mapping_aware:  # New object found
                 if self.objects_found >= self.objects_total:  # If there are no more objects left
                     self.mapping_send_stop()
-                    self.change_behaviour(
-                        BEHAVIOUR_MAPPING, STATE_INACTIVE, BEHAVIOUR_NONE, 0)
+                    # self.change_behaviour(
+                    #     BEHAVIOUR_MAPPING, STATE_INACTIVE, BEHAVIOUR_NONE, 0)
                     self.all_objects_found()
 
                 else:  # If resuming, objects found but still more to go
@@ -667,7 +668,7 @@ class Controller():
         '''
         rospy.loginfo("Reached message received")
         if not self.objects[self.object_current]["visited"]: 
-            rospy.loginfo("Object reached! - {}".format(self.objects[self.object_current]["name"]))
+            rospy.loginfo("### Object reached! - {} ###".format(self.objects[self.object_current]["name"]))
             self.objects[self.object_current]["visited"] = True
             self.objects[self.object_current]["visiting"] = False
             self.objects[self.object_current]["x"] = x_coordinate
@@ -826,7 +827,7 @@ class Controller():
         '''
         Called when all objects are found.
         '''
-        rospy.loginfo("All objects found")
+        rospy.loginfo("### ALL OBJECTS FOUND! ###")
         self.shutdown()
 
     def object_finding_failed(self):
