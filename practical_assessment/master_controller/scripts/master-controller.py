@@ -338,7 +338,7 @@ class Controller():
         self.objects[self.object_current]["visiting"] = True
         self.object_navigation_type_publisher.publish(
             self.objects[self.object_current]["name"])
-        rospy.loginfo("Sent object type to Object Navigation")
+        # rospy.loginfo("Sent object type to Object Navigation")
 
     def change_behaviour(
             self, current_behaviour,
@@ -559,15 +559,21 @@ class Controller():
             self.objects[self.object_current]["y"] = coordinate_y
             self.objects[self.object_current]["size_x"] = size_x
             self.objects[self.object_current]["size_y"] = size_y
-
+            visited = self.objects[self.object_current]["visited"]
+            visiting = self.objects[self.object_current]["visiting"]
+            rospy.loginfo("Visited {}".format(visited))
+            rospy.loginfo("Visiting {}".format(visiting))
             if self.state_mapping == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and not self.objects[self.object_current]["visiting"]:
                 rospy.loginfo("Found {}".format(self.objects[self.object_current]["name"]))
+                self.objects[self.object_current]["visiting"] = True
                 self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
                 self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
                                       STATE_ACTIVE_STOPPED,
                                       BEHAVIOUR_OBJECT_NAVIGATION,
                                       STATE_ACTIVE_RUNNING)
                 self.object_navigation_run()
+            elif self.state_object_navigation == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]:
+                self.object_navigation_send_detected()
 
         else:
             rospy.logerr("Unrecognised object presented!")

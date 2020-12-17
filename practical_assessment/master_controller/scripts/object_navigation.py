@@ -91,6 +91,7 @@ class ObjectNavigation():
         '''
         self.object_name = data.object_name
         self.object_pose = data
+        rospy.loginfo("X: {}, Y:{}".format(data.x, data.y))
 
     def amcl_cb(self, amcl):
         '''
