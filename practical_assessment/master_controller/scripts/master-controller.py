@@ -24,21 +24,19 @@ from std_msgs.msg import Int32, String
 from geometry_msgs.msg import Pose
 
 
-#  Overall parameters
+# Route designed for maximum visual coverage with non-overlapping viewing areas
 WAYPOINTS = [
-    (-0.25, -1, 0, 0),
-    (0.25, -4, 0, 1),
-    (-3, -4, 0, 2),
-    (-0.25, -1, 0, 3),
-    (-0.25, 4.2, 0, 4),
-    (3.75, 4.2, 0, 5),
-    (3.75, 2, 0, 6),
-    (1, 2, 0, 7),
-    (-0.25, 4.2, 0, 8),
-    (-0.25, - 1, 0, 9),
-    (5.5, 1, 0, 10),
-    (5.5, 4, 0, 11),
-    (5.5, -4, 0, 12)
+    #(-1.3, 4.05, 0, 0),  # Reverse robot waypoint
+    (-1.2, -1.0, 0, 0),
+    (0.0, 0.5, 0, 1),
+    (3.3, 0.8, 0, 2),
+    (5.5, 2.9, 0, 2),
+    (5.9, -3.0, 0, 2),
+    (5.0, -3.0, 0, 2),  # Reverse robot waypoint
+    (0.8, -3.4, 0, 1),
+    (0.0, 4.0, 0, 3),
+    (3.5, 4.0, 0, 4),
+    (1.5, 2.5, 0, 4)
 ]
 
 OBJECTS = [
@@ -47,8 +45,10 @@ OBJECTS = [
     "Blue Postbox",
     "Black and White 5"
 ]
-MAX_REATTEMPTS_PER_WAYPOINT = 1
-MAX_REVISITS_PER_WAYPOINT = 2 
+
+#  Overall parameters
+MAX_REATTEMPTS_PER_WAYPOINT = 2
+MAX_REVISITS_PER_WAYPOINT = 1 
 LOOPING = False
 ENABLE_SKIP_ROOMS = False
 
@@ -790,7 +790,7 @@ class Controller():
         self.waypoints[self.waypoint_current]["attempt"] += 1
         if self.waypoints[self.waypoint_current]["attempt"] <= MAX_REATTEMPTS_PER_WAYPOINT:
             # If the waypoint still has attempts left
-            rospy.logwarn("Waypoint {} attempt number {} failed. Will re-try.".format(self.waypoint_current, 
+            rospy.logwarn("Waypoint {} attempt number {} failed. Will re-attempt.".format(self.waypoint_current, 
                 self.waypoints[self.waypoint_current]["attempt"]))
             self.mapping_run()
         else:  
