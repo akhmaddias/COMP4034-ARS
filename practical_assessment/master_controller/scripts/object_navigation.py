@@ -126,7 +126,7 @@ class ObjectNavigation():
             self.navigate_to_object()
         elif self.object_action == STOP:
             rospy.loginfo("Stopping object navigation...")
-            self.twist_pub.publish(self.stop_cmd())
+            self.twist_pub.publish(self.stop_cmd)
             self.is_moving = False
         elif self.object_action == REACHED:
             rospy.loginfo("Object reached!")
