@@ -209,7 +209,7 @@ class ObjectNavigation():
         '''
         self.is_moving = False
         rospy.loginfo("Reached object {}".format(self.object_name))
-        self.twist_pub.publish(STOP_CMD)
+        self.twist_pub.publish(self.stop_cmd)
         self.object_control_pub.publish(REACHED)
 
 
