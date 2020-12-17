@@ -34,6 +34,7 @@ class ObjectNavigation():
         rospy.init_node('object_navigation', anonymous=False)
 
         # variables
+        self.enable = False
         self.is_running = False
         self.object_name = None
         self.object_action = None
@@ -67,6 +68,8 @@ class ObjectNavigation():
                                                    Pose, queue_size=1)
         self.twist_pub = rospy.Publisher("cmd_vel", Twist, queue_size=3)
 
+        rospy.loginfo("Waiting for the command")
+
     def scan_cb(self, scandata):
         '''
         Saves laser scan data
@@ -89,18 +92,21 @@ class ObjectNavigation():
         Saves the control state and starts navigation
         '''
         self.object_action = action.data
+        self.enable = True
 
     def navigation_control(self):
-        if self.object_action == START:
-            self.navigate_to_object()
-        elif self.object_action == STOP:
-            rospy.loginfo("Stopping object navigation...")
-            self.twist_pub.publish(self.stop_cmd)
-            self.is_moving = False
-        elif self.object_action == REACHED:
-            rospy.loginfo("Object reached!")
-        else:
-            rospy.loginfo("Waiting for the command")
+        if self.enable:
+            if self.object_action == START:
+                self.navigate_to_object()
+            elif self.object_action == STOP:
+                rospy.loginfo("Stopping object navigation...")
+                self.twist_pub.publish(self.stop_cmd)
+                self.is_moving = False
+                self.enable = False
+            elif self.object_action == REACHED:
+                rospy.loginfo("Object reached!")
+                self.enable = False
+                rospy.loginfo("Waiting for the command")
 
     def navigate_to_object(self):
         '''
