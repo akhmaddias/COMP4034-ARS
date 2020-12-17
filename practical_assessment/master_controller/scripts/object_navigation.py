@@ -16,8 +16,8 @@ REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURNING_ERROR_UP_THRESHOLD = 2.2
-TURNING_ERROR_DOWN_THRESHOLD = 1.8
+TURN_ERR_UP_THRESHOLD = 2.2
+TURN_ERR_DOWN_THRESHOLD = 1.8
 TURN_GAIN = 0.5
 TURN_MAX_SPEED = 1
 TURN_MIN_SPEED = 0.01
@@ -35,16 +35,7 @@ OFFSET = 15
 
 
 class ObjectNavigation():
-    
 
-    STOP_CMD = Twist()
-    STOP_CMD.linear.x = 0
-    STOP_CMD.linear.y = 0
-    STOP_CMD.linear.z = 0
-
-    STOP_CMD.angular.x = 0
-    STOP_CMD.angular.y = 0
-    STOP_CMD.angular.z = 0
 
     def __init__(self):
         # init node
@@ -63,6 +54,14 @@ class ObjectNavigation():
         self.scan_index = None
         self.is_moving = False
         self.move_cmd = Twist()
+        self.stop_cmd = Twist()
+        self.stop_cmd.linear.x = 0
+        self.stop_cmd.linear.y = 0
+        self.stop_cmd.linear.z = 0
+
+        self.stop_cmd.angular.x = 0
+        self.stop_cmd.angular.y = 0
+        self.stop_cmd.angular.z = 0
 
         # init subscribers
         self.object_control_sub = rospy.Subscriber("object_control",
@@ -127,7 +126,7 @@ class ObjectNavigation():
             self.navigate_to_object()
         elif self.object_action == STOP:
             rospy.loginfo("Stopping object navigation...")
-            self.move_cmd(STOP_CMD)
+            self.twist_pub.publish(self.stop_cmd())
             self.is_moving = False
         elif self.object_action == REACHED:
             rospy.loginfo("Object reached!")
