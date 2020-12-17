@@ -27,7 +27,7 @@ from geometry_msgs.msg import Pose
 # Route designed for maximum visual coverage with non-overlapping viewing areas
 WAYPOINTS = [
     #(-1.3, 4.05, 0, 0),  # Reverse robot waypoint
-    (-1.2, -1.0, 0, 0),
+    (-1.2, -0.85, 0, 0),
     (0.0, 0.5, 0, 1),
     (3.3, 0.8, 0, 2),
     (5.5, 2.9, 0, 2),
@@ -324,7 +324,7 @@ class Controller():
         msg.size_y = self.objects[self.object_current]["size_y"]
         msg.object_name = self.objects[self.object_current]["name"]
         self.object_navigation_detected_publisher.publish(msg)
-        rospy.loginfo("Sent object details to Object Navigation")
+        #rospy.loginfo("Sent object details to Object Navigation")
 
     def object_navigation_send_object_coordinates(self):
         pose = Pose()
@@ -561,18 +561,18 @@ class Controller():
             self.objects[self.object_current]["size_y"] = size_y
             visited = self.objects[self.object_current]["visited"]
             visiting = self.objects[self.object_current]["visiting"]
-            rospy.loginfo("Visited {}".format(visited))
-            rospy.loginfo("Visiting {}".format(visiting))
-            if self.state_mapping == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and not self.objects[self.object_current]["visiting"]:
+            #rospy.loginfo("Visited {}".format(visited))
+            #rospy.loginfo("Visiting {}".format(visiting))
+            if self.state_mapping == STATE_ACTIVE_RUNNING and not visited and not visiting:
                 rospy.loginfo("Found {}".format(self.objects[self.object_current]["name"]))
-                self.objects[self.object_current]["visiting"] = True
+                #self.objects[self.object_current]["visiting"] = True
                 self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
                 self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
                                       STATE_ACTIVE_STOPPED,
                                       BEHAVIOUR_OBJECT_NAVIGATION,
                                       STATE_ACTIVE_RUNNING)
                 self.object_navigation_run()
-            elif self.state_object_navigation == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]:
+            elif self.state_object_navigation == STATE_ACTIVE_RUNNING and not visited and visiting:
                 self.object_navigation_send_detected()
 
         else:
