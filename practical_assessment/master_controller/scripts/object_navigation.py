@@ -16,8 +16,8 @@ REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURN_ERR_UP_THRESHOLD = 2.2
-TURN_ERR_DOWN_THRESHOLD = 1.8
+TURN_ERR_UP_THRESHOLD = 10
+TURN_ERR_DOWN_THRESHOLD = -10
 TURN_GAIN = 0.5
 TURN_MAX_SPEED = 1
 TURN_MIN_SPEED = 0.01
@@ -70,9 +70,6 @@ class ObjectNavigation():
         self.object_detected_sub = rospy.Subscriber("object_navigation_detected",
                                                     DetectedObject,
                                                     self.object_detected_cb)
-        self.amcl_sub = rospy.Subscriber("amcl_pose",
-                                         PoseWithCovarianceStamped,
-                                         self.amcl_cb)
         self.scan_sub = rospy.Subscriber("scan",
                                          LaserScan,
                                          self.scan_cb)
@@ -89,10 +86,8 @@ class ObjectNavigation():
         Saves laser scan data
         '''
         self.dist_to_object = scandata.ranges[TARGET - OFFSET]
-        self.scan_index = TARGET
         for i in range(TARGET - OFFSET + 1, TARGET + OFFSET):
             self.dist_to_object = min(scandata.ranges[i], self.dist_to_object)
-            self.scan_index = i if self.dist_to_object > scandata.ranges[i] else self.scan_index
 
         self.navigation_control()
 
@@ -102,18 +97,6 @@ class ObjectNavigation():
         '''
         self.object_name = data.object_name
         self.object_pose = data
-
-    def amcl_cb(self, amcl):
-        '''
-        Saves current position and orientation of robot
-        '''
-        self.curr_position = amcl.pose.pose.position
-        quart = [amcl.pose.pose.orientation.x,
-                 amcl.pose.pose.orientation.y,
-                 amcl.pose.pose.orientation.z,
-                 amcl.pose.pose.orientation.w]
-        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(quart)
-        self.curr_orientation = yaw
 
     def object_control_cb(self, action):
         '''
@@ -184,7 +167,7 @@ class ObjectNavigation():
             turnspeed = min(max(turn_err * TURN_GAIN,
                                 TURN_MIN_SPEED),
                             TURN_MAX_SPEED)
-            turnspeed = turnspeed if turn_err < 2 else -turnspeed
+            turnspeed = turnspeed if turn_err < 0 else -turnspeed
 
         # target reached
         if turnspeed == 0 and movespeed == 0:
