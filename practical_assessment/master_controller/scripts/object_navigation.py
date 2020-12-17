@@ -16,7 +16,7 @@ REACHED = 0
 DIST_TO_OBJECT = 0.5
 
 # turning controller constants
-TURNING_ERROR_THRESHOLD = radians(10)
+TURNING_ERROR_THRESHOLD = 5
 TURN_GAIN = 0.5
 TURN_MAX_SPEED = 1
 TURN_MIN_SPEED = 0.01
@@ -83,6 +83,8 @@ class ObjectNavigation():
             self.dist_to_object = min(scandata.ranges[i], self.dist_to_object)
             self.scan_index = i if self.dist_to_object > scandata.ranges[i] else self.scan_index
 
+        self.navigation_control()
+
     def object_detected_cb(self, data):
         '''
         Saves object position and name
@@ -107,6 +109,8 @@ class ObjectNavigation():
         Saves the control state and starts navigation
         '''
         self.object_action = action.data
+    
+    def navigation_control(self):
         if self.object_action == START:
             self.navigate_to_object()
         elif self.object_action == STOP:
