@@ -560,10 +560,8 @@ class Controller():
             self.objects[self.object_current]["size_x"] = size_x
             self.objects[self.object_current]["size_y"] = size_y
 
-            if self.state_mapping == STATE_ACTIVE_RUNNING and not (
-                self.objects[self.object_current]["visited"] and self.objects[self.object_current]["visiting"]
-            ):
-                rospy.loginfo("New known object detected")
+            if self.state_mapping == STATE_ACTIVE_RUNNING and not self.objects[self.object_current]["visited"] and not self.objects[self.object_current]["visiting"]:
+                rospy.loginfo("Found {}".format(self.objects[self.object_current]["name"]))
                 self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
                 self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
                                       STATE_ACTIVE_STOPPED,
@@ -661,14 +659,19 @@ class Controller():
         Called when the object has been reached.
         This returns to mapping once complete.
         '''
-        self.objects[self.object_current]["visited"] = True
-        self.objects[self.object_current]["visiting"] = False
-        self.objects[self.object_current]["x"] = x_coordinate
-        self.objects[self.object_current]["y"] = y_coordinate
-        self.objects[self.object_current]["z"] = 0.0
-        self.objects_found += 1
+        rospy.loginfo("Reached message received")
+        if not self.objects[self.object_current]["visited"]: 
+            rospy.loginfo("Object reached! - {}".format(self.objects[self.object_current]["name"]))
+            self.objects[self.object_current]["visited"] = True
+            self.objects[self.object_current]["visiting"] = False
+            self.objects[self.object_current]["x"] = x_coordinate
+            self.objects[self.object_current]["y"] = y_coordinate
+            self.objects[self.object_current]["z"] = 0.0
+            self.objects_found += 1
+            rospy.loginfo("Found {} objects".format(self.objects_found))
+            self.object_navigation_send_stop()
 
-        self.return_to_specified_behaviour(BEHAVIOUR_MAPPING)
+            self.return_to_specified_behaviour(BEHAVIOUR_MAPPING)
 
     def object_navigation_override(self):
         '''
