@@ -39,6 +39,11 @@ class ObjectNavigation():
 
     STOP_CMD = Twist()
     STOP_CMD.linear.x = 0
+    STOP_CMD.linear.y = 0
+    STOP_CMD.linear.z = 0
+
+    STOP_CMD.angular.x = 0
+    STOP_CMD.angular.y = 0
     STOP_CMD.angular.z = 0
 
     def __init__(self):
@@ -170,7 +175,7 @@ class ObjectNavigation():
                             MOVE_MAX_SPEED)
 
         # turn error
-        turn_err = self.object_detected.size_x / self.object_detected.x
+        turn_err = abs(self.object_detected.size_x / 2 - self.object_detected.x)
 
         # if error less than threshold then stop turning
         if turn_err <= TURN_ERR_UP_THRESHOLD and turn_err >= TURN_ERR_DOWN_THRESHOLD:
