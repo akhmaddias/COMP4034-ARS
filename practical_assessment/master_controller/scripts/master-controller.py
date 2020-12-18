@@ -583,7 +583,7 @@ class Controller():
         rospy.logdebug("Out of controlling state lock acquired")
         rospy.logwarn("Collision alert")
         if self.state_object_navigation == STATE_ACTIVE_RUNNING:
-            self.object_navigation_override()
+            self.object_navigation_override(BEHAVIOUR_COLLISION_AVOIDANCE)
         elif self.state_mapping == STATE_ACTIVE_RUNNING:
             self.mapping_override(BEHAVIOUR_COLLISION_AVOIDANCE)
         self.out_of_controlling_state_lock.release()
@@ -617,7 +617,7 @@ class Controller():
         if self.state_mapping == STATE_ACTIVE_RUNNING:
             self.mapping_override(BEHAVIOUR_RECOVERY)
         elif self.state_object_navigation == STATE_ACTIVE_RUNNING:
-            self.object_navigation_override()
+            self.object_navigation_override(BEHAVIOUR_RECOVERY)
 
         self.out_of_controlling_state_lock.release()
         rospy.logdebug("Out of controlling state lock released")
@@ -688,6 +688,8 @@ class Controller():
         Method to override navigation in case of an exceptional circumstance.
         '''
         self.object_navigation_send_pause()
+        self.change_behaviour(
+                BEHAVIOUR_OBJECT_NAVIGATION, STATE_INACTIVE, behaviour, STATE_ACTIVE_RUNNING)
         self.mapping_send_stop()
 
     def get_object_id(self, object_name):
