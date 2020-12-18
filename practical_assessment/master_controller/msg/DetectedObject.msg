@@ -6,3 +6,4 @@ uint32 size_y
 string object_name
 uint32 x
 uint32 y
+bool at_object
