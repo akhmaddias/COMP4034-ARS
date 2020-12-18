@@ -15,7 +15,7 @@ DEBUG_SAMPLE_RADIUS = 10  # Radius not accurate as its a square
 
 class DetectableObject(object):
 
-    def __init__(self, name, h, s, v, h_range, s_range, v_range):
+    def __init__(self, name, h, s, v, h_range, s_range, v_range, arrived_size):
         self.name = name
         self.h = h
         self.s = s
@@ -23,6 +23,7 @@ class DetectableObject(object):
         self.h_range = h_range
         self.s_range = s_range
         self.v_range = v_range
+        self.arrived_size = arrived_size
 
         self.hsv_lo = np.array([(self.h - self.h_range / 2) % 180,
                                 max(self.s - self.s_range / 2, 0),
@@ -58,7 +59,7 @@ class DetectableObject(object):
         closed = cv.morphologyEx(mask, cv.MORPH_OPEN, (11, 11))
         contours, _ = cv.findContours(closed,
                                       cv.RETR_TREE,
-                                      cv.CHAIN_APPROX_SIMPLE)
+                                      cv.CHAIN_APPROX_SIMPLE)[-2:]  # Opencv versions are dumb
 
         if DEBUG:
             cv.imshow('Mask: {0}'.format(self.name), closed)
@@ -75,7 +76,7 @@ class DetectableObject(object):
                 if area > best_area:
                     cx = int(moments['m10'] / moments['m00'])
                     cy = int(moments['m01'] / moments['m00'])
-                    best_contour = (cx, cy)
+                    best_contour = (cx, cy, area)
                     best_area = area
 
         if matches > 1:
@@ -116,7 +117,8 @@ class Classifier():
                         target['v'],
                         target['h_range'],
                         target['s_range'],
-                        target['v_range']
+                        target['v_range'],
+                        target['contour_arrived_size']
                     ))
                 self.scale_down = self.config['scale_down']
             except KeyError as err:
@@ -142,11 +144,16 @@ class Classifier():
         for target in self.targets:
             result = target.find_in_image(img, self.config)
             if result:
-                x, y = result
+                x, y, area = result
                 if DEBUG:
                     rospy.loginfo('I can see {0} at x={1} y={2}'.format(
                         target.name, *result))
-                detected.append((target.name, x, y))
+                    rospy.loginfo('Area is {}, target requires {}'.format(
+                        area,
+                        target.arrived_size
+                    ))
+                detected.append((target.name, x, y,
+                                 area >= target.arrived_size))
         return detected
 
 
@@ -185,12 +192,16 @@ class ROSNode():
                 self.debug_colours(image_hsv.copy())
 
             detected = self.classifier.classify(image_hsv)
-            for name, x, y in detected:
+            for name, x, y, arrived in detected:
                 msg = DetectedObject()
                 msg.object_name = name
+                msg.at_object = arrived
                 msg.x, msg.y = x, y
                 msg.size_y, msg.size_x, _ = image_hsv.shape
                 self.detected_pub.publish(msg)
+
+                if arrived:
+                    rospy.loginfo('Arrived at {}!'.format(name))
 
         except CvBridgeError as err:
             rospy.logerr('CvBridgeError in image_callback: %s', err)

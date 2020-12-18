@@ -11,7 +11,8 @@
             "v": 40,
             "h_range": 25,
             "s_range": 30,
-            "v_range": 100 
+            "v_range": 100,
+            "contour_arrived_size": 8000
         },
         {
             "name": "Green Box",
@@ -20,7 +21,8 @@
             "v": 100,
             "h_range": 5,
             "s_range": 100,
-            "v_range": 200 
+            "v_range": 200,
+            "contour_arrived_size": 20000
         },
         {
             "name": "Blue Postbox",
@@ -29,7 +31,8 @@
             "v": 80,
             "h_range": 20,
             "s_range": 60,
-            "v_range": 100 
+            "v_range": 100,
+            "contour_arrived_size": 10000
         },
         {
             "name": "Black and White 5",
@@ -38,7 +41,8 @@
             "v": 10,
             "h_range": 180,
             "s_range": 10,
-            "v_range": 20
+            "v_range": 20,
+            "contour_arrived_size": 3500
         }
 
     ]

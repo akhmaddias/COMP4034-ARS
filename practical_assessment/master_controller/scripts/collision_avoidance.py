@@ -10,7 +10,7 @@ from geometry_msgs.msg import Twist
 
 
 SAMPLE_WINDOW = 90
-COLLISION_DISTANCE = 0.25
+COLLISION_DISTANCE = 0.35
 SPEED = 0.1
 TURN_SPEED = 0.1
 
@@ -56,13 +56,25 @@ class CollisionAvoidance():
                 self.blocked = True
                 self.message_pub.publish(MESSAGE_BLOCKED)
 
-            back_dist = self.sample_scan(scandata, 180)
-            if back_dist > COLLISION_DISTANCE:
-                rospy.loginfo('Driving backward')
-                self.vel_publisher.publish(self.backward_twist)
+            l_dist = self.sample_scan(scandata, 45, window_size=90)
+            r_dist = self.sample_scan(scandata, 45, window_size=90)
+            if l_dist < COLLISION_DISTANCE:
+                turn_left = Twist()
+                turn_left.angular.z = TURN_SPEED
+                turn_left.linear.x = -SPEED
+                self.vel_publisher.publish(turn_left)
+            elif r_dist < COLLISION_DISTANCE:
+                turn_right = Twist()
+                turn_right.angular.z = -TURN_SPEED
+                turn_right.linear.x = -SPEED
             else:
-                rospy.loginfo('Backwars is blocked, spinning on the spot!')
-                self.vel_publisher.publish(self.spin_twist)
+                back_dist = self.sample_scan(scandata, 180)
+                if back_dist > COLLISION_DISTANCE:
+                    rospy.loginfo('Driving backward')
+                    self.vel_publisher.publish(self.backward_twist)
+                else:
+                    rospy.loginfo('Backwars is blocked, spinning on the spot!')
+                    self.vel_publisher.publish(self.spin_twist)
         elif self.blocked:
             rospy.loginfo("Collision Avoided!")
             self.blocked = False
