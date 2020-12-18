@@ -17,6 +17,7 @@ Behaviour priority is as follows:
 __author__ = "Lewis C Brand"
 
 import threading
+
 import rospy
 
 from master_controller.msg import DetectedObject
@@ -247,9 +248,15 @@ class Controller():
             rospy.logwarn("{}".format(msg.data))
 
     def object_detection_type_callback(self, msg):
+        '''
+        Deprecated - This interface that this function uses has been replaced with DetectedObject()
+        '''
         rospy.logwarn("Unhandled Object Detection Type callback message!")
 
     def object_detection_pose_callback(self, msg):
+        '''
+        Deprecated - This interface that this function uses has been replaced with DetectedObject()
+        '''
         rospy.logwarn("Unhandled Object Detection Pose callback message!")
 
     def object_detection_callback(self, msg):
@@ -330,6 +337,9 @@ class Controller():
         #rospy.loginfo("Sent object details to Object Navigation")
 
     def object_navigation_send_object_coordinates(self):
+        '''
+        Deprecated - This interface that this function uses has been replaced with DetectedObject()
+        '''
         pose = Pose()
         pose.position.x = self.objects[self.object_current]["x"]
         pose.position.y = self.objects[self.object_current]["y"]
@@ -338,6 +348,9 @@ class Controller():
         rospy.loginfo("Sent coordinates to Object Navigation")
 
     def object_navigation_send_object_type(self):
+        '''
+        Deprecated - This interface that this function uses has been replaced with DetectedObject()
+        '''
         self.objects[self.object_current]["visiting"] = True
         self.object_navigation_type_publisher.publish(
             self.objects[self.object_current]["name"])
@@ -525,7 +538,7 @@ class Controller():
                                   behaviour,
                                   STATE_ACTIVE_RUNNING)
             self.mapping_send_pause()
-    
+
     def mapping_failed(self):
         '''
         Called when mapping has failed.
@@ -606,6 +619,8 @@ class Controller():
 
     def recovery_behaviour_run(self):
         '''
+        Deprecated - Recovery behaviour has been removed
+
         Triggered when recovery behaviour is initiated and needs to take over.
         Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
         will override a controlling behaviour.
@@ -624,6 +639,8 @@ class Controller():
 
     def recovery_behaviour_finished(self):
         '''
+        Deprecated - Recovery behaviour has been removed
+
         Triggered when recovery behaviour is no longer detecting anything.
         Acquires the out_of_controlling_state_lock to ensure that avoidance_behaviour
         will override a controlling behaviour.
