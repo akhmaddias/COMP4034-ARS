@@ -35,7 +35,7 @@ WAYPOINTS = [
     (5.0, -3.0, 0, 2),  # Reverse robot waypoint
     (0.8, -3.4, 0, 1),
     (0.0, 4.0, 0, 3),
-    (3.5, 4.0, 0, 4),
+    (3.9, 3.0, 0, 4),
     (1.5, 2.5, 0, 4)
 ]
 
@@ -120,6 +120,7 @@ class Controller():
         self.objects_total = len(OBJECTS)
         rospy.loginfo("Task has {} objects to find".format(self.objects_total))
         self.objects_mapping_aware = 0
+        self.visiting = False
 
         self.init_waypoints()
         self.init_objects()
@@ -559,14 +560,16 @@ class Controller():
             visited = self.objects[self.object_current]["visited"]
             visiting = self.objects[self.object_current]["visiting"]
             if self.state_mapping == STATE_ACTIVE_RUNNING and not visited and not visiting:
-                rospy.loginfo("### Identified {} ###".format(self.objects[self.object_current]["name"]))
-                self.objects[self.object_current]["visiting"] = True
-                self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
-                self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
-                                      STATE_INACTIVE,
-                                      BEHAVIOUR_OBJECT_NAVIGATION,
-                                      STATE_ACTIVE_RUNNING)
-                self.object_navigation_run()
+                if not self.visiting:
+                    rospy.loginfo("### Identified {} ###".format(self.objects[self.object_current]["name"]))
+                    self.objects[self.object_current]["visiting"] = True
+                    self.mapping_override(BEHAVIOUR_OBJECT_DETECTION)
+                    self.change_behaviour(BEHAVIOUR_OBJECT_DETECTION,
+                                        STATE_INACTIVE,
+                                        BEHAVIOUR_OBJECT_NAVIGATION,
+                                        STATE_ACTIVE_RUNNING)
+                    self.visiting = True
+                    self.object_navigation_run()
             elif self.state_object_navigation == STATE_ACTIVE_RUNNING  and visiting and not visited:
                 self.object_navigation_send_detected()
 
@@ -670,7 +673,7 @@ class Controller():
             self.objects_found += 1
             rospy.loginfo("Found {} objects".format(self.objects_found))
             self.object_navigation_send_stop()
-
+            self.visiting = False
             self.return_to_behaviour(self.behaviour_current, BEHAVIOUR_MAPPING)
 
     def object_navigation_failed(self):
@@ -682,7 +685,7 @@ class Controller():
             self.objects[self.object_current]["visiting"] = False
             self.objects[self.object_current]["visited"] = False
             self.object_navigation_send_stop()
-
+            self.visiting = False
             self.return_to_behaviour(self.behaviour_current, BEHAVIOUR_MAPPING)
 
 
