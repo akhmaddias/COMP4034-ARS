@@ -278,6 +278,8 @@ class Controller():
     def object_control_callback(self, msg):
         if msg.data == REACHED_OBJECT:
             self.object_navigation_reached_object(0.0, 0.0)
+        elif msg.data == FAILED:
+            self.object_navigation_failed()
         elif msg.data != ACTION_START and msg.data != ACTION_PAUSE and msg.data != ACTION_STOP:
             rospy.logwarn(
                 "Unhandled Object Navigation Control callback message")
@@ -668,11 +670,25 @@ class Controller():
 
             self.return_to_behaviour(self.behaviour_current, BEHAVIOUR_MAPPING)
 
-    def object_navigation_override(self):
+    def object_navigation_failed(self):
+        '''
+        Called when object navigation has failed.
+        '''
+        if self.state_object_navigation == STATE_ACTIVE_RUNNING:    
+            rospy.logerr("Navigation to {} failed!".format( self.objects[self.object_current]["name"]))
+            self.objects[self.object_current]["visiting"] = False
+            self.objects[self.object_current]["visited"] = False
+            self.object_navigation_send_stop()
+
+            self.return_to_behaviour(self.behaviour_current, BEHAVIOUR_MAPPING)
+
+
+    def object_navigation_override(self, behaviour):
         '''
         Method to override navigation in case of an exceptional circumstance.
         '''
         self.object_navigation_send_pause()
+        self.mapping_send_stop()
 
     def get_object_id(self, object_name):
         '''
