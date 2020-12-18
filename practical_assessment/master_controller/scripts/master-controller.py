@@ -49,7 +49,7 @@ OBJECTS = [
 #  Overall parameters
 MAX_REATTEMPTS_PER_WAYPOINT = 2
 MAX_REVISITS_PER_WAYPOINT = 1 
-LOOPING = False
+LOOPING = True
 ENABLE_SKIP_ROOMS = False
 
 #  State flags
