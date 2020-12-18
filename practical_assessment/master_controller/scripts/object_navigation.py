@@ -19,8 +19,9 @@ TURN_GAIN = 0.005
 # moving controller constants
 MOVING_ERROR_THRESHOLD = 0.5
 MOVE_GAIN = 0.5
-MOVE_MAX_SPEED = 0.3
+MOVE_MAX_SPEED = 0.2
 MOVE_MIN_SPEED = 0.01
+BACKWARDS_SPEED = -0.2
 
 # laser scan constants
 WINDOW = 20
@@ -65,7 +66,7 @@ class ObjectNavigation():
         self.scan_sub = rospy.Subscriber("scan",
                                          LaserScan,
                                          self.scan_cb)
-        
+
         # init publishers
         self.object_control_pub = rospy.Publisher("object_control",
                                                   Int32, queue_size=1)
@@ -113,7 +114,6 @@ class ObjectNavigation():
             self.object_control_pub.publish(FAILED)
         self.message_count_past = self.message_count_current
 
-
     def navigation_control(self):
         if self.enable:
             if self.object_action == START:
@@ -148,7 +148,7 @@ class ObjectNavigation():
                           .format(self.object_name,
                                   self.object_detected.x,
                                   self.object_detected.y))
-        if self.object_action == 1:
+        if self.object_action == START:
             self.calculate_movement()
 
     def calculate_movement(self):
@@ -176,9 +176,14 @@ class ObjectNavigation():
         turnspeed = -float(turn_err) * TURN_GAIN
 
         # target reached
-        if movespeed == 0:
+        if self.object_detected.at_object:
             self.goal_reached()
             return
+        
+        # move backwards if obstacle is in front
+        if not self.object_detected.at_object and movespeed == 0:
+            self.move_cmd.linear.x = BACKWARDS_SPEED
+            self.move_cmd.angular.z = 0
 
         # set twist command parameters
         self.move_cmd.linear.x = movespeed
