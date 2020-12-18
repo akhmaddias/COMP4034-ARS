@@ -65,7 +65,7 @@ class ObjectNavigation():
         self.scan_sub = rospy.Subscriber("scan",
                                          LaserScan,
                                          self.scan_cb)
-        
+
         # init publishers
         self.object_control_pub = rospy.Publisher("object_control",
                                                   Int32, queue_size=1)
@@ -100,7 +100,7 @@ class ObjectNavigation():
         self.object_action = action.data
         self.enable = True
 
-    def lost_or_dead(self, timer):
+    def lost_or_dead(self, _):
         '''
         Triggered every 5 seconds and compares number of incoming messages with that of 5 seconds ago.
         Used to detect missing messages when running.
