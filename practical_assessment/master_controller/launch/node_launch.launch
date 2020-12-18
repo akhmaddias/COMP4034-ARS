@@ -1,0 +1,6 @@
+<launch>
+  <node pkg="master_controller" name="map_navigation.py" type="map_navigation.py"/>
+  <node pkg="master_controller" name="vision_node.py" type="vision_node.py"/>
+  <node pkg="master_controller" name="object_navigation.py" type="object_navigation.py"/>
+  <node pkg="master_controller" name="collision_avoidance.py" type="collision_avoidance.py"/>
+</launch>
