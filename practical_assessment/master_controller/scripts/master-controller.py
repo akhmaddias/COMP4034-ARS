@@ -185,6 +185,7 @@ class Controller():
             object_details["name"] = detectable_object
             object_details["visited"] = False
             object_details["visiting"] = False
+            object_details["at_object"] = False
 
             self.objects.append(object_details)
             i += 1
@@ -254,7 +255,7 @@ class Controller():
 
     def object_detection_callback(self, msg):
         self.object_detection_detected(
-            msg.object_name, msg.x, msg.y, msg.size_x, msg.size_y)
+            msg.object_name, msg.x, msg.y, msg.size_x, msg.size_y, msg.at_object)
 
     def collision_control_callback(self, msg):
         if msg.data == COLLISION_TO_AVOID:
@@ -326,6 +327,7 @@ class Controller():
         msg.size_x = self.objects[self.object_current]["size_x"]
         msg.size_y = self.objects[self.object_current]["size_y"]
         msg.object_name = self.objects[self.object_current]["name"]
+        msg.at_object = self.objects[self.object_current]["at_object"]
         self.object_navigation_detected_publisher.publish(msg)
         #rospy.loginfo("Sent object details to Object Navigation")
 
@@ -534,7 +536,7 @@ class Controller():
             rospy.logerr("Mapping failed to reach waypoint {}!".format(self.waypoint_current))
             self.reattempt_waypoint_or_skip()
 
-    def object_detection_detected(self, object_name, coordinate_x, coordinate_y, size_x, size_y):
+    def object_detection_detected(self, object_name, coordinate_x, coordinate_y, size_x, size_y, at_object):
         '''
         Called when an object is detected.
         If mapping is currently active (and therefore not overridden), and the object that has been
@@ -553,6 +555,7 @@ class Controller():
             self.objects[self.object_current]["y"] = coordinate_y
             self.objects[self.object_current]["size_x"] = size_x
             self.objects[self.object_current]["size_y"] = size_y
+            self.objects[self.object_current]["at_object"] = at_object
             visited = self.objects[self.object_current]["visited"]
             visiting = self.objects[self.object_current]["visiting"]
             if self.state_mapping == STATE_ACTIVE_RUNNING and not visited and not visiting:
